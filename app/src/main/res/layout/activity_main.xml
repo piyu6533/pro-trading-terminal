@@ -23,13 +23,16 @@
             android:layout_weight="1"
             android:text="@string/nifty_50"
             android:textColor="#FFFFFF"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/nifty_price"
-            android:textColor="#4CAF50" />
+            android:paddingEnd="4dp"
+            android:textColor="#4CAF50"
+            tools:ignore="RtlSymmetry" />
     </LinearLayout>
 
     <TextView
