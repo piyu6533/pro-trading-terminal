@@ -10,4 +10,9 @@
     <string name="price_reliance">₹2,450.00</string>
     <string name="price_tcs">₹3,890.00</string>
     <string name="price_infy">₹1,620.00</string>
+    <string name="buy">BUY</string>
+    <string name="sell">SELL</string>
+    <string name="portfolio">Portfolio</string>
+    <string name="total_pnl">Total P&#38;L</string>
+    <string name="pnl_value">+₹12,450.50 (+2.1%)</string>
 </resources>
