@@ -1,4 +1,13 @@
 <resources>
     <string name="app_name">ProTradingTerminal</string>
-    <string name="welcome_message">Welcome to Pro Trading Terminal!</string>
+    <string name="welcome_message">Market Watch</string>
+    <string name="nifty_50">NIFTY 50</string>
+    <string name="nifty_price">22,147.90 (+0.45%)</string>
+    <string name="bank_nifty">BANK NIFTY</string>
+    <string name="symbol_reliance">RELIANCE</string>
+    <string name="symbol_tcs">TCS</string>
+    <string name="symbol_infy">INFY</string>
+    <string name="price_reliance">₹2,450.00</string>
+    <string name="price_tcs">₹3,890.00</string>
+    <string name="price_infy">₹1,620.00</string>
 </resources>
