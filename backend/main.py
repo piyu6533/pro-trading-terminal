@@ -28,6 +28,12 @@ class MarketData(BaseModel):
     news_sentiment: float
     supertrend_dir: int
 
+# --- BUSINESS LOGIC / CALCULATIONS ---
+def calculate_pcr(put_oi: float, call_oi: float):
+    if call_oi == 0: 
+        return 0.0
+    return round(put_oi / call_oi, 2)
+
 # --- ENDPOINT 1: NSE OPTION CHAIN ---
 @app.get("/option-chain")
 def get_option_chain():
@@ -36,6 +42,28 @@ def get_option_chain():
     session = requests.Session()
     session.get("https://www.nseindia.com", headers=headers) # Get Cookies
     return session.get(url, headers=headers).json()
+ 
+    # Extracting totals from NSE JSON structure
+    total_call_oi = raw_data['filtered']['CE']['totOI']
+    total_put_oi = raw_data['filtered']['PE']['totOI']
+    
+    pcr_value = calculate_pcr(total_put_oi, total_call_oi)
+    
+    # Determine Sentiment
+    if pcr_value > 1.1:
+        sentiment = "BULLISH"
+    elif pcr_value < 0.7:
+        sentiment = "BEARISH"
+    else:
+        sentiment = "NEUTRAL"
+    
+    return {
+        "symbol": "NIFTY",
+        "pcr": pcr_value,
+        "sentiment": sentiment,
+        "call_oi": total_call_oi,
+        "put_oi": total_put_oi
+    }
 
 # --- ENDPOINT 2: AI PREDICTION ---
 @app.post("/predict")
