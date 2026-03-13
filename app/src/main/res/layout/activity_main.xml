@@ -57,7 +57,9 @@
                 android:hint="Enter Symbol (e.g. RELIANCE.NS)"
                 android:textColor="#FFFFFF"
                 android:textColorHint="#66FFFFFF"
-                android:backgroundTint="#FFFFFF" />
+                android:backgroundTint="#FFFFFF"
+                android:inputType="text"
+                android:autofillHints="none" />
 
             <Button
                 android:id="@+id/btnSearch"
@@ -102,9 +104,9 @@
             </LinearLayout>
         </androidx.cardview.widget.CardView>
 
-        <!-- Professional Chart -->
-        <com.github.mikephil.charting.charts.CandleStickChart
-            android:id="@+id/candleStickChart"
+        <!-- Professional Combined Chart (Candles + Indicators) -->
+        <com.github.mikephil.charting.charts.CombinedChart
+            android:id="@+id/combinedChart"
             android:layout_width="match_parent"
             android:layout_height="250dp"
             android:layout_margin="16dp"
@@ -118,7 +120,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="16dp"
-            app:layout_constraintTop_toBottomOf="@id/candleStickChart">
+            app:layout_constraintTop_toBottomOf="@id/combinedChart">
 
             <Button
                 android:id="@+id/btnBuy"

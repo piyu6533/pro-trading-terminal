@@ -13,10 +13,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.github.mikephil.charting.charts.CandleStickChart
-import com.github.mikephil.charting.data.CandleData
-import com.github.mikephil.charting.data.CandleDataSet
-import com.github.mikephil.charting.data.CandleEntry
+import com.github.mikephil.charting.charts.CombinedChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.*
 import okhttp3.*
 import org.json.JSONObject
 import retrofit2.Call
@@ -29,7 +28,7 @@ import java.util.concurrent.TimeUnit
 class MainActivity : AppCompatActivity() {
 
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var chart: CandleStickChart
+    private lateinit var combinedChart: CombinedChart
     private lateinit var pnlValue: TextView
     private lateinit var aiSignal: TextView
     private lateinit var niftyPriceText: TextView
@@ -40,8 +39,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var apiService: MarketApiService
     private lateinit var webSocket: WebSocket
     
-    // Dynamic Chart Data
     private val chartEntries = ArrayList<CandleEntry>()
+    private val smaEntries = ArrayList<Entry>()
     private var lastPrice = 22147.90f
     private var currentMinute = -1L
     private var activeSymbol = "NIFTY 50"
@@ -55,7 +54,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        chart = findViewById(R.id.candleStickChart)
+        combinedChart = findViewById(R.id.combinedChart)
         pnlValue = findViewById(R.id.pnlValue)
         aiSignal = findViewById(R.id.aiSignal)
         niftyPriceText = findViewById(R.id.niftyPriceText)
@@ -63,27 +62,15 @@ class MainActivity : AppCompatActivity() {
         etSymbol = findViewById(R.id.etSymbol)
         btnSearch = findViewById(R.id.btnSearch)
         
-        val btnBuy = findViewById<Button>(R.id.btnBuy)
-        val btnSell = findViewById<Button>(R.id.btnSell)
-
-        btnBuy.setOnClickListener {
-            showOrderPopup("BUY")
-        }
-
-        btnSell.setOnClickListener {
-            showOrderPopup("SELL")
-        }
+        findViewById<Button>(R.id.btnBuy).setOnClickListener { showOrderPopup("BUY") }
+        findViewById<Button>(R.id.btnSell).setOnClickListener { showOrderPopup("SELL") }
 
         btnSearch.setOnClickListener {
             val symbol = etSymbol.text.toString().trim()
-            if (symbol.isNotEmpty()) {
-                performSearch(symbol)
-            } else {
-                Toast.makeText(this, "Please enter a symbol", Toast.LENGTH_SHORT).show()
-            }
+            if (symbol.isNotEmpty()) performSearch(symbol)
+            else Toast.makeText(this, "Please enter a symbol", Toast.LENGTH_SHORT).show()
         }
         
-        // Initialize chart with some starting historical candles
         initChartData()
 
         val okHttpClient = OkHttpClient.Builder()
@@ -105,7 +92,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun performSearch(symbol: String) {
-        Log.d("TradingApp", "Searching for $symbol...")
         apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
             override fun onResponse(call: Call<StockResponse>, response: Response<StockResponse>) {
                 if (response.isSuccessful) {
@@ -115,35 +101,24 @@ class MainActivity : AppCompatActivity() {
                             activeSymbol = stockData.shortName ?: symbol
                             lastPrice = stockData.regularMarketPrice.toFloat()
                             niftyPriceText.text = "₹${stockData.regularMarketPrice}"
-                            
-                            // Reset chart for the new symbol
                             chartEntries.clear()
+                            smaEntries.clear()
                             currentMinute = -1L
                             initChartData()
-                            
                             Toast.makeText(this@MainActivity, "Showing data for $activeSymbol", Toast.LENGTH_SHORT).show()
                         }
-                    } else {
-                        Toast.makeText(this@MainActivity, "Symbol not found", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
-
-            override fun onFailure(call: Call<StockResponse>, t: Throwable) {
-                Log.e("TradingApp", "Search Error: ${t.message}")
-                Toast.makeText(this@MainActivity, "Search failed", Toast.LENGTH_SHORT).show()
-            }
+            override fun onFailure(call: Call<StockResponse>, t: Throwable) {}
         })
     }
 
     private fun showOrderPopup(type: String) {
-        val message = if (type == "BUY") "Order Confirmed: Bought $activeSymbol at ₹$lastPrice" 
-                      else "Order Confirmed: Sold $activeSymbol at ₹$lastPrice"
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
     }
 
     private fun initChartData() {
-        // Mock historical data relative to current price
         chartEntries.add(CandleEntry(0f, lastPrice + 10, lastPrice - 20, lastPrice - 10, lastPrice + 5))
         chartEntries.add(CandleEntry(1f, lastPrice + 20, lastPrice - 10, lastPrice + 5, lastPrice + 15))
         chartEntries.add(CandleEntry(2f, lastPrice + 15, lastPrice - 15, lastPrice + 15, lastPrice - 5))
@@ -158,8 +133,6 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val json = JSONObject(text)
                     val price = json.getDouble("price").toFloat()
-                    
-                    // Only update via WebSocket if we are tracking NIFTY (since WS is hardcoded for NIFTY in backend)
                     if (activeSymbol.contains("NIFTY", ignoreCase = true)) {
                         lastPrice = price
                         runOnUiThread {
@@ -167,67 +140,70 @@ class MainActivity : AppCompatActivity() {
                             handlePriceUpdate(price)
                         }
                     }
-                } catch (e: Exception) {
-                    Log.e("TradingApp", "WS Parse Error: ${e.message}")
-                }
+                } catch (e: Exception) {}
             }
-
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
-                Log.e("TradingApp", "WS Failure: ${t.message}. Reconnecting...")
                 handler.postDelayed({ setupWebSocket(client) }, 5000)
             }
         })
     }
 
     private fun handlePriceUpdate(price: Float) {
-        val now = System.currentTimeMillis() / 1000 / 60 // Current minute since epoch
-        
+        val now = System.currentTimeMillis() / 1000 / 60
         if (currentMinute == -1L || now > currentMinute) {
-            // New Minute: Create a new candle
             currentMinute = now
-            val newIndex = chartEntries.size.toFloat()
-            chartEntries.add(CandleEntry(newIndex, price, price, price, price))
-            
-            // Limit chart to last 20 candles for performance
-            if (chartEntries.size > 20) chartEntries.removeAt(0)
-            
+            chartEntries.add(CandleEntry(chartEntries.size.toFloat(), price, price, price, price))
+            if (chartEntries.size > 30) chartEntries.removeAt(0)
         } else {
-            // Same Minute: Update current candle
             val lastEntry = chartEntries.last()
             if (price > lastEntry.high) lastEntry.high = price
             if (price < lastEntry.low) lastEntry.low = price
             lastEntry.close = price
         }
-        
         updateChartDisplay()
     }
 
     private fun updateChartDisplay() {
-        val dataSet = CandleDataSet(chartEntries, "$activeSymbol Live")
-        dataSet.shadowColor = Color.LTGRAY
-        dataSet.shadowWidth = 0.8f
-        dataSet.decreasingColor = Color.RED
-        dataSet.decreasingPaintStyle = Paint.Style.FILL
-        dataSet.increasingColor = Color.parseColor("#00FF66")
-        dataSet.increasingPaintStyle = Paint.Style.FILL
-        dataSet.neutralColor = Color.BLUE
-        dataSet.valueTextColor = Color.WHITE
-        dataSet.setDrawValues(false)
+        val combinedData = CombinedData()
 
-        val candleData = CandleData(dataSet)
-        chart.data = candleData
-        chart.setBackgroundColor(Color.parseColor("#121212"))
-        chart.description.isEnabled = false
-        chart.legend.textColor = Color.WHITE
-        chart.xAxis.textColor = Color.WHITE
-        chart.axisLeft.textColor = Color.WHITE
-        chart.axisRight.textColor = Color.WHITE
+        // 1. Candlestick Data
+        val candleDataSet = CandleDataSet(chartEntries, "$activeSymbol Live")
+        candleDataSet.shadowColor = Color.LTGRAY
+        candleDataSet.shadowWidth = 0.8f
+        candleDataSet.decreasingColor = Color.RED
+        candleDataSet.decreasingPaintStyle = Paint.Style.FILL
+        candleDataSet.increasingColor = Color.parseColor("#00FF66")
+        candleDataSet.increasingPaintStyle = Paint.Style.FILL
+        candleDataSet.neutralColor = Color.BLUE
+        candleDataSet.setDrawValues(false)
+        combinedData.setData(CandleData(candleDataSet))
+
+        // 2. SMA (Simple Moving Average) Line Data
+        if (chartEntries.size >= 3) {
+            smaEntries.clear()
+            for (i in 2 until chartEntries.size) {
+                val avg = (chartEntries[i].close + chartEntries[i-1].close + chartEntries[i-2].close) / 3
+                smaEntries.add(Entry(i.toFloat(), avg))
+            }
+            val lineDataSet = LineDataSet(smaEntries, "SMA (3)")
+            lineDataSet.color = Color.YELLOW
+            lineDataSet.lineWidth = 2f
+            lineDataSet.setDrawCircles(false)
+            lineDataSet.setDrawValues(false)
+            combinedData.setData(LineData(lineDataSet))
+        }
+
+        combinedChart.data = combinedData
+        combinedChart.setBackgroundColor(Color.parseColor("#121212"))
+        combinedChart.description.isEnabled = false
+        combinedChart.legend.textColor = Color.WHITE
+        combinedChart.xAxis.textColor = Color.WHITE
+        combinedChart.axisLeft.textColor = Color.WHITE
+        combinedChart.axisRight.textColor = Color.WHITE
         
-        // Auto-scroll to latest candle
-        chart.setVisibleXRangeMaximum(10f)
-        chart.moveViewToX(chartEntries.size.toFloat())
-        
-        chart.invalidate() 
+        combinedChart.setVisibleXRangeMaximum(15f)
+        combinedChart.moveViewToX(chartEntries.size.toFloat())
+        combinedChart.invalidate() 
     }
 
     private fun startMarketDataUpdates() {
@@ -240,7 +216,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchMarketData() {
-        // Fetch AI Signal
         apiService.getAiSignal().enqueue(object : Callback<AiSignalResponse> {
             override fun onResponse(call: Call<AiSignalResponse>, response: Response<AiSignalResponse>) {
                 if (response.isSuccessful) {
@@ -258,32 +233,24 @@ class MainActivity : AppCompatActivity() {
             override fun onFailure(call: Call<AiSignalResponse>, t: Throwable) {}
         })
 
-        // Fetch PCR Data
         apiService.getPcrData(call = 500000.0, put = 650000.0).enqueue(object : Callback<PcrResponse> {
             override fun onResponse(call: Call<PcrResponse>, response: Response<PcrResponse>) {
                 if (response.isSuccessful) {
                     val pcrData = response.body()
-                    runOnUiThread {
-                        pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})"
-                    }
+                    runOnUiThread { pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})" }
                 }
             }
             override fun onFailure(call: Call<PcrResponse>, t: Throwable) {}
         })
 
-        // Fetch Heatmap Data
         apiService.getOiHeatmap().enqueue(object : Callback<OiHeatmapResponse> {
             override fun onResponse(call: Call<OiHeatmapResponse>, response: Response<OiHeatmapResponse>) {
                 if (response.isSuccessful) {
                     val heatmap = response.body()?.heatmap
-                    if (heatmap != null) {
-                        runOnUiThread { updateHeatmapUI(heatmap) }
-                    }
+                    if (heatmap != null) runOnUiThread { updateHeatmapUI(heatmap) }
                 }
             }
-            override fun onFailure(call: Call<OiHeatmapResponse>, t: Throwable) {
-                Log.e("TradingApp", "Heatmap Fetch Error: ${t.message}")
-            }
+            override fun onFailure(call: Call<OiHeatmapResponse>, t: Throwable) {}
         })
     }
 
@@ -294,14 +261,11 @@ class MainActivity : AppCompatActivity() {
             row.orientation = LinearLayout.HORIZONTAL
             row.setPadding(8, 8, 8, 8)
             row.gravity = android.view.Gravity.CENTER_VERTICAL
-
             val strikeText = TextView(this)
             strikeText.layoutParams = LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT)
             strikeText.text = entry.strike.toString()
             strikeText.setTextColor(Color.WHITE)
             row.addView(strikeText)
-
-            // Normalized widths for bars (scaling factor example: / 20000)
             val callWidth = (entry.call_oi / 20000).toInt().coerceIn(10, 300)
             val callBar = View(this)
             val callParams = LinearLayout.LayoutParams(callWidth, 40)
@@ -309,13 +273,11 @@ class MainActivity : AppCompatActivity() {
             callBar.layoutParams = callParams
             callBar.setBackgroundColor(Color.RED)
             row.addView(callBar)
-
             val putWidth = (entry.put_oi / 20000).toInt().coerceIn(10, 300)
             val putBar = View(this)
             putBar.layoutParams = LinearLayout.LayoutParams(putWidth, 40)
             putBar.setBackgroundColor(Color.parseColor("#00FF66"))
             row.addView(putBar)
-
             heatmapLayout.addView(row)
         }
     }
@@ -323,8 +285,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
-        if (::webSocket.isInitialized) {
-            webSocket.close(1000, "Activity Destroyed")
-        }
+        if (::webSocket.isInitialized) webSocket.close(1000, "Activity Destroyed")
     }
 }
