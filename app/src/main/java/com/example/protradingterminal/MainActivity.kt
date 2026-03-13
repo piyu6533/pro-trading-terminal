@@ -7,8 +7,10 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.View
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.CandleStickChart
 import com.github.mikephil.charting.data.CandleData
@@ -54,6 +56,17 @@ class MainActivity : AppCompatActivity() {
         niftyPriceText = findViewById(R.id.niftyPriceText)
         heatmapLayout = findViewById(R.id.heatmapLayout)
         
+        val btnBuy = findViewById<Button>(R.id.btnBuy)
+        val btnSell = findViewById<Button>(R.id.btnSell)
+
+        btnBuy.setOnClickListener {
+            showOrderPopup("BUY")
+        }
+
+        btnSell.setOnClickListener {
+            showOrderPopup("SELL")
+        }
+        
         // Initialize chart with some starting historical candles
         initChartData()
 
@@ -75,6 +88,12 @@ class MainActivity : AppCompatActivity() {
         startMarketDataUpdates()
     }
 
+    private fun showOrderPopup(type: String) {
+        val message = if (type == "BUY") "Order Confirmed: Bought NIFTY at ₹$lastPrice" 
+                      else "Order Confirmed: Sold NIFTY at ₹$lastPrice"
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
     private fun initChartData() {
         // Mock historical data
         chartEntries.add(CandleEntry(0f, 22160f, 22130f, 22140f, 22150f))
@@ -91,6 +110,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val json = JSONObject(text)
                     val price = json.getDouble("price").toFloat()
+                    lastPrice = price
                     
                     runOnUiThread {
                         niftyPriceText.text = "₹$price"
