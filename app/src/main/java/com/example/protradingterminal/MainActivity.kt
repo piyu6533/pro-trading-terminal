@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var chart: CandleStickChart
     private lateinit var pnlValue: TextView
+    private lateinit var aiSignal: TextView
     private lateinit var apiService: MarketApiService
 
     companion object {
@@ -35,6 +36,8 @@ class MainActivity : AppCompatActivity() {
 
         chart = findViewById(R.id.candleStickChart)
         pnlValue = findViewById(R.id.pnlValue)
+        aiSignal = findViewById(R.id.aiSignal)
+        
         setupChart(chart)
 
         // Initialize Retrofit with the live Render URL
@@ -71,10 +74,20 @@ class MainActivity : AppCompatActivity() {
                     // Update UI with the new data
                     runOnUiThread {
                         pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})"
+                        aiSignal.text = pcrData?.sentiment ?: "NEUTRAL"
+                        
                         if (pcrData?.sentiment == "BULLISH") {
                             pnlValue.setTextColor(Color.GREEN)
-                        } else {
+                            aiSignal.setTextColor(Color.parseColor("#00FF66")) // Bright Green
+                            aiSignal.text = "BUY"
+                        } else if (pcrData?.sentiment == "BEARISH") {
                             pnlValue.setTextColor(Color.RED)
+                            aiSignal.setTextColor(Color.parseColor("#FF4444")) // Bright Red
+                            aiSignal.text = "SELL"
+                        } else {
+                            pnlValue.setTextColor(Color.WHITE)
+                            aiSignal.setTextColor(Color.YELLOW)
+                            aiSignal.text = "HOLD"
                         }
                     }
                 } else {
