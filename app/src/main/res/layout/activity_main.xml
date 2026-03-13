@@ -144,6 +144,54 @@
                 android:textStyle="bold"/>
         </LinearLayout>
 
+        <!-- OI Heatmap Section -->
+        <TextView
+            android:id="@+id/heatmapTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OI Heatmap"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:layout_marginTop="20dp"
+            android:layout_marginStart="16dp"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/aiSignalPanel"/>
+
+        <LinearLayout
+            android:id="@+id/heatmapLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_margin="16dp"
+            android:background="#1E1E1E"
+            android:padding="8dp"
+            app:layout_constraintTop_toBottomOf="@id/heatmapTitle">
+
+            <!-- Strike 22000 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp"
+                android:gravity="center_vertical">
+                <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="22000" android:textColor="#FFFFFF"/>
+                <View android:layout_width="100dp" android:layout_height="20dp" android:background="#FF4444" android:layout_marginEnd="8dp"/>
+                <View android:layout_width="40dp" android:layout_height="20dp" android:background="#00FF66"/>
+            </LinearLayout>
+
+            <!-- Strike 22100 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="8dp"
+                android:gravity="center_vertical">
+                <TextView android:layout_width="60dp" android:layout_height="wrap_content" android:text="22100" android:textColor="#FFFFFF"/>
+                <View android:layout_width="30dp" android:layout_height="20dp" android:background="#FF4444" android:layout_marginEnd="8dp"/>
+                <View android:layout_width="120dp" android:layout_height="20dp" android:background="#00FF66"/>
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Option Chain Section -->
         <TextView
             android:id="@+id/optionChainTitle"
@@ -155,7 +203,7 @@
             android:layout_marginTop="20dp"
             android:layout_marginStart="16dp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/aiSignalPanel"/>
+            app:layout_constraintTop_toBottomOf="@id/heatmapLayout"/>
 
         <TableLayout
             android:id="@+id/optionChainTable"
