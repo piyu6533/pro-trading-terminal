@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -33,6 +34,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var aiSignal: TextView
     private lateinit var niftyPriceText: TextView
     private lateinit var heatmapLayout: LinearLayout
+    private lateinit var etSymbol: EditText
+    private lateinit var btnSearch: Button
+    
     private lateinit var apiService: MarketApiService
     private lateinit var webSocket: WebSocket
     
@@ -40,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private val chartEntries = ArrayList<CandleEntry>()
     private var lastPrice = 22147.90f
     private var currentMinute = -1L
+    private var activeSymbol = "NIFTY 50"
 
     companion object {
         private const val BASE_URL = "https://trading-api-tj2l.onrender.com/"
@@ -55,6 +60,8 @@ class MainActivity : AppCompatActivity() {
         aiSignal = findViewById(R.id.aiSignal)
         niftyPriceText = findViewById(R.id.niftyPriceText)
         heatmapLayout = findViewById(R.id.heatmapLayout)
+        etSymbol = findViewById(R.id.etSymbol)
+        btnSearch = findViewById(R.id.btnSearch)
         
         val btnBuy = findViewById<Button>(R.id.btnBuy)
         val btnSell = findViewById<Button>(R.id.btnSell)
@@ -65,6 +72,15 @@ class MainActivity : AppCompatActivity() {
 
         btnSell.setOnClickListener {
             showOrderPopup("SELL")
+        }
+
+        btnSearch.setOnClickListener {
+            val symbol = etSymbol.text.toString().trim()
+            if (symbol.isNotEmpty()) {
+                performSearch(symbol)
+            } else {
+                Toast.makeText(this, "Please enter a symbol", Toast.LENGTH_SHORT).show()
+            }
         }
         
         // Initialize chart with some starting historical candles
@@ -88,18 +104,50 @@ class MainActivity : AppCompatActivity() {
         startMarketDataUpdates()
     }
 
+    private fun performSearch(symbol: String) {
+        Log.d("TradingApp", "Searching for $symbol...")
+        apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
+            override fun onResponse(call: Call<StockResponse>, response: Response<StockResponse>) {
+                if (response.isSuccessful) {
+                    val stockData = response.body()?.quoteResponse?.result?.firstOrNull()
+                    if (stockData != null) {
+                        runOnUiThread {
+                            activeSymbol = stockData.shortName ?: symbol
+                            lastPrice = stockData.regularMarketPrice.toFloat()
+                            niftyPriceText.text = "₹${stockData.regularMarketPrice}"
+                            
+                            // Reset chart for the new symbol
+                            chartEntries.clear()
+                            currentMinute = -1L
+                            initChartData()
+                            
+                            Toast.makeText(this@MainActivity, "Showing data for $activeSymbol", Toast.LENGTH_SHORT).show()
+                        }
+                    } else {
+                        Toast.makeText(this@MainActivity, "Symbol not found", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+
+            override fun onFailure(call: Call<StockResponse>, t: Throwable) {
+                Log.e("TradingApp", "Search Error: ${t.message}")
+                Toast.makeText(this@MainActivity, "Search failed", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
     private fun showOrderPopup(type: String) {
-        val message = if (type == "BUY") "Order Confirmed: Bought NIFTY at ₹$lastPrice" 
-                      else "Order Confirmed: Sold NIFTY at ₹$lastPrice"
+        val message = if (type == "BUY") "Order Confirmed: Bought $activeSymbol at ₹$lastPrice" 
+                      else "Order Confirmed: Sold $activeSymbol at ₹$lastPrice"
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun initChartData() {
-        // Mock historical data
-        chartEntries.add(CandleEntry(0f, 22160f, 22130f, 22140f, 22150f))
-        chartEntries.add(CandleEntry(1f, 22170f, 22140f, 22150f, 22165f))
-        chartEntries.add(CandleEntry(2f, 22165f, 22135f, 22165f, 22145f))
-        chartEntries.add(CandleEntry(3f, 22155f, 22125f, 22145f, 22150f))
+        // Mock historical data relative to current price
+        chartEntries.add(CandleEntry(0f, lastPrice + 10, lastPrice - 20, lastPrice - 10, lastPrice + 5))
+        chartEntries.add(CandleEntry(1f, lastPrice + 20, lastPrice - 10, lastPrice + 5, lastPrice + 15))
+        chartEntries.add(CandleEntry(2f, lastPrice + 15, lastPrice - 15, lastPrice + 15, lastPrice - 5))
+        chartEntries.add(CandleEntry(3f, lastPrice + 5, lastPrice - 25, lastPrice - 5, lastPrice))
         updateChartDisplay()
     }
 
@@ -110,11 +158,14 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val json = JSONObject(text)
                     val price = json.getDouble("price").toFloat()
-                    lastPrice = price
                     
-                    runOnUiThread {
-                        niftyPriceText.text = "₹$price"
-                        handlePriceUpdate(price)
+                    // Only update via WebSocket if we are tracking NIFTY (since WS is hardcoded for NIFTY in backend)
+                    if (activeSymbol.contains("NIFTY", ignoreCase = true)) {
+                        lastPrice = price
+                        runOnUiThread {
+                            niftyPriceText.text = "₹$price"
+                            handlePriceUpdate(price)
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("TradingApp", "WS Parse Error: ${e.message}")
@@ -152,7 +203,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateChartDisplay() {
-        val dataSet = CandleDataSet(chartEntries, "NIFTY Live")
+        val dataSet = CandleDataSet(chartEntries, "$activeSymbol Live")
         dataSet.shadowColor = Color.LTGRAY
         dataSet.shadowWidth = 0.8f
         dataSet.decreasingColor = Color.RED
