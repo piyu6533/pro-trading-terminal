@@ -8,12 +8,16 @@ from pydantic import BaseModel
 app = FastAPI()
 
 # --- MODEL LOADING ---
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-model_path = os.path.join(BASE_DIR, "ai_model", "trading_ai.pkl")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# We check if the model exists in the same directory or parent
+model_path = os.path.join(BASE_DIR, "..", "ai_model", "trading_ai.pkl")
 
 try:
-    model = joblib.load(model_path)
-    model_loaded = True
+    if os.path.exists(model_path):
+        model = joblib.load(model_path)
+        model_loaded = True
+    else:
+        model_loaded = False
 except Exception as e:
     print(f"❌ Model load failed: {e}")
     model_loaded = False
@@ -28,26 +32,12 @@ class MarketData(BaseModel):
     news_sentiment: float
     supertrend_dir: int
 
-# --- BUSINESS LOGIC / CALCULATIONS ---
-def calculate_pcr(put_oi: float, call_oi: float):
-    if call_oi == 0: 
-        return 0.0
-    return round(put_oi / call_oi, 2)
-
-# --- ENDPOINT 1: NSE OPTION CHAIN ---
-@app.get("/option-chain")
-def get_option_chain():
-    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    session = requests.Session()
-    session.get("https://www.nseindia.com", headers=headers) # Get Cookies
-    return session.get(url, headers=headers).json()
- 
-    # Extracting totals from NSE JSON structure
-    total_call_oi = raw_data['filtered']['CE']['totOI']
-    total_put_oi = raw_data['filtered']['PE']['totOI']
-    
-    pcr_value = calculate_pcr(total_put_oi, total_call_oi)
+# --- PCR CALCULATION ---
+@app.get("/pcr")
+def get_pcr_calculation(call: float, put: float):
+    if call == 0:
+        return {"error": "Call OI cannot be zero", "PCR": 0.0}
+    pcr_value = round(put / call, 2)
     
     # Determine Sentiment
     if pcr_value > 1.1:
@@ -56,14 +46,31 @@ def get_option_chain():
         sentiment = "BEARISH"
     else:
         sentiment = "NEUTRAL"
-    
+
     return {
-        "symbol": "NIFTY",
-        "pcr": pcr_value,
+        "PCR": pcr_value,
         "sentiment": sentiment,
-        "call_oi": total_call_oi,
-        "put_oi": total_put_oi
+        "call_oi": call,
+        "put_oi": put
     }
+
+# --- ENDPOINT 1: NSE OPTION CHAIN ---
+@app.get("/option-chain")
+def get_option_chain():
+    # Note: NSE API often requires complex session management and headers
+    url = "https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br"
+    }
+    try:
+        session = requests.Session()
+        session.get("https://www.nseindia.com", headers=headers) # Get Cookies
+        response = session.get(url, headers=headers)
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
 
 # --- ENDPOINT 2: AI PREDICTION ---
 @app.post("/predict")
@@ -81,4 +88,12 @@ def predict_signal(data: MarketData):
 @app.get("/stock/{symbol}")
 def get_stock(symbol: str):
     url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
-    return requests.get(url).json()
+    try:
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000)
