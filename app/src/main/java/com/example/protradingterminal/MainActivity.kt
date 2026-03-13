@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import com.github.mikephil.charting.charts.CandleStickChart
@@ -28,6 +30,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pnlValue: TextView
     private lateinit var aiSignal: TextView
     private lateinit var niftyPriceText: TextView
+    private lateinit var heatmapLayout: LinearLayout
     private lateinit var apiService: MarketApiService
     private lateinit var webSocket: WebSocket
     
@@ -49,6 +52,7 @@ class MainActivity : AppCompatActivity() {
         pnlValue = findViewById(R.id.pnlValue)
         aiSignal = findViewById(R.id.aiSignal)
         niftyPriceText = findViewById(R.id.niftyPriceText)
+        heatmapLayout = findViewById(R.id.heatmapLayout)
         
         // Initialize chart with some starting historical candles
         initChartData()
@@ -195,11 +199,61 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onFailure(call: Call<PcrResponse>, t: Throwable) {}
         })
+
+        // Fetch Heatmap Data
+        apiService.getOiHeatmap().enqueue(object : Callback<OiHeatmapResponse> {
+            override fun onResponse(call: Call<OiHeatmapResponse>, response: Response<OiHeatmapResponse>) {
+                if (response.isSuccessful) {
+                    val heatmap = response.body()?.heatmap
+                    if (heatmap != null) {
+                        runOnUiThread { updateHeatmapUI(heatmap) }
+                    }
+                }
+            }
+            override fun onFailure(call: Call<OiHeatmapResponse>, t: Throwable) {
+                Log.e("TradingApp", "Heatmap Fetch Error: ${t.message}")
+            }
+        })
+    }
+
+    private fun updateHeatmapUI(heatmap: List<HeatmapEntry>) {
+        heatmapLayout.removeAllViews()
+        for (entry in heatmap) {
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.setPadding(8, 8, 8, 8)
+            row.gravity = android.view.Gravity.CENTER_VERTICAL
+
+            val strikeText = TextView(this)
+            strikeText.layoutParams = LinearLayout.LayoutParams(150, LinearLayout.LayoutParams.WRAP_CONTENT)
+            strikeText.text = entry.strike.toString()
+            strikeText.setTextColor(Color.WHITE)
+            row.addView(strikeText)
+
+            // Normalized widths for bars (scaling factor example: / 20000)
+            val callWidth = (entry.call_oi / 20000).toInt().coerceIn(10, 300)
+            val callBar = View(this)
+            val callParams = LinearLayout.LayoutParams(callWidth, 40)
+            callParams.marginEnd = 16
+            callBar.layoutParams = callParams
+            callBar.setBackgroundColor(Color.RED)
+            row.addView(callBar)
+
+            val putWidth = (entry.put_oi / 20000).toInt().coerceIn(10, 300)
+            val putBar = View(this)
+            putBar.layoutParams = LinearLayout.LayoutParams(putWidth, 40)
+            putBar.setBackgroundColor(Color.parseColor("#00FF66"))
+            row.addView(putBar)
+
+            heatmapLayout.addView(row)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
-        if (::webSocket.isInitialized) webSocket.close(1000, "Closed")
+        if (::webSocket.isInitialized) {
+            webSocket.close(1000, "Activity Destroyed")
+        }
     }
 }
