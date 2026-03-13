@@ -12,11 +12,13 @@ import com.github.mikephil.charting.charts.CandleStickChart
 import com.github.mikephil.charting.data.CandleData
 import com.github.mikephil.charting.data.CandleDataSet
 import com.github.mikephil.charting.data.CandleEntry
+import okhttp3.OkHttpClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 class MainActivity : AppCompatActivity() {
 
@@ -40,9 +42,17 @@ class MainActivity : AppCompatActivity() {
         
         setupChart(chart)
 
-        // Initialize Retrofit with the live Render URL
+        // Create a custom OkHttpClient with longer timeouts for Render's cold start
+        val okHttpClient = OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+
+        // Initialize Retrofit with the custom client and live Render URL
         val retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
+            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
@@ -64,25 +74,22 @@ class MainActivity : AppCompatActivity() {
     private fun fetchMarketData() {
         Log.d("TradingApp", "Calling Backend API at $BASE_URL...")
 
-        // Example: Call backend with some sample OI data
         apiService.getPcrData(call = 500000.0, put = 650000.0).enqueue(object : Callback<PcrResponse> {
             override fun onResponse(call: Call<PcrResponse>, response: Response<PcrResponse>) {
                 if (response.isSuccessful) {
                     val pcrData = response.body()
                     Log.d("TradingApp", "PCR Received: ${pcrData?.PCR}")
                     
-                    // Update UI with the new data
                     runOnUiThread {
                         pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})"
-                        aiSignal.text = pcrData?.sentiment ?: "NEUTRAL"
                         
                         if (pcrData?.sentiment == "BULLISH") {
                             pnlValue.setTextColor(Color.GREEN)
-                            aiSignal.setTextColor(Color.parseColor("#00FF66")) // Bright Green
+                            aiSignal.setTextColor(Color.parseColor("#00FF66"))
                             aiSignal.text = "BUY"
                         } else if (pcrData?.sentiment == "BEARISH") {
                             pnlValue.setTextColor(Color.RED)
-                            aiSignal.setTextColor(Color.parseColor("#FF4444")) // Bright Red
+                            aiSignal.setTextColor(Color.parseColor("#FF4444"))
                             aiSignal.text = "SELL"
                         } else {
                             pnlValue.setTextColor(Color.WHITE)
