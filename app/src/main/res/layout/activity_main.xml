@@ -27,6 +27,7 @@
             android:textStyle="bold" />
 
         <TextView
+            android:id="@+id/niftyPriceText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/nifty_price"
@@ -35,14 +36,49 @@
             tools:ignore="RtlSymmetry" />
     </LinearLayout>
 
-    <!-- Professional Chart (MPAndroidChart) -->
+    <!-- Portfolio Summary Section -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/portfolioCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        app:cardBackgroundColor="#1E1E1E"
+        app:cardCornerRadius="12dp"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/total_pnl"
+                android:textColor="#BBBBBB"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/pnlValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="@string/pnl_value"
+                android:textColor="#4CAF50"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Professional Chart -->
     <com.github.mikephil.charting.charts.CandleStickChart
         android:id="@+id/candleStickChart"
         android:layout_width="match_parent"
-        android:layout_height="300dp"
+        android:layout_height="250dp"
         android:layout_margin="16dp"
         android:background="#1E1E1E"
-        app:layout_constraintTop_toBottomOf="@id/headerLayout" />
+        app:layout_constraintTop_toBottomOf="@id/portfolioCard" />
 
     <!-- Buy/Sell Buttons -->
     <LinearLayout
