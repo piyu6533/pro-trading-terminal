@@ -12,7 +12,8 @@ import com.github.mikephil.charting.charts.CandleStickChart
 import com.github.mikephil.charting.data.CandleData
 import com.github.mikephil.charting.data.CandleDataSet
 import com.github.mikephil.charting.data.CandleEntry
-import okhttp3.OkHttpClient
+import okhttp3.*
+import org.json.JSONObject
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -26,10 +27,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chart: CandleStickChart
     private lateinit var pnlValue: TextView
     private lateinit var aiSignal: TextView
+    private lateinit var niftyPriceText: TextView
     private lateinit var apiService: MarketApiService
+    private lateinit var webSocket: WebSocket
 
     companion object {
         private const val BASE_URL = "https://trading-api-tj2l.onrender.com/"
+        private const val WS_URL = "wss://trading-api-tj2l.onrender.com/ws"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,17 +43,18 @@ class MainActivity : AppCompatActivity() {
         chart = findViewById(R.id.candleStickChart)
         pnlValue = findViewById(R.id.pnlValue)
         aiSignal = findViewById(R.id.aiSignal)
+        niftyPriceText = findViewById(R.id.niftyPriceText)
         
         setupChart(chart)
 
-        // Create a custom OkHttpClient with longer timeouts for Render's cold start
+        // OkHttpClient for both Retrofit and WebSocket
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
             .readTimeout(60, TimeUnit.SECONDS)
             .writeTimeout(60, TimeUnit.SECONDS)
             .build()
 
-        // Initialize Retrofit with the custom client and live Render URL
+        // Initialize Retrofit
         val retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
@@ -58,8 +63,34 @@ class MainActivity : AppCompatActivity() {
 
         apiService = retrofit.create(MarketApiService::class.java)
 
-        // Start periodic updates
+        // Initialize WebSocket
+        setupWebSocket(okHttpClient)
+
+        // Start periodic updates for non-streaming data
         startMarketDataUpdates()
+    }
+
+    private fun setupWebSocket(client: OkHttpClient) {
+        val request = Request.Builder().url(WS_URL).build()
+        webSocket = client.newWebSocket(request, object : WebSocketListener() {
+            override fun onMessage(webSocket: WebSocket, text: String) {
+                try {
+                    val json = JSONObject(text)
+                    val price = json.getDouble("price")
+                    runOnUiThread {
+                        niftyPriceText.text = "₹$price"
+                    }
+                } catch (e: Exception) {
+                    Log.e("TradingApp", "WS Parse Error: ${e.message}")
+                }
+            }
+
+            override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
+                Log.e("TradingApp", "WS Error: ${t.message}")
+                // Try to reconnect after 5 seconds
+                handler.postDelayed({ setupWebSocket(client) }, 5000)
+            }
+        })
     }
 
     private fun startMarketDataUpdates() {
@@ -72,14 +103,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchMarketData() {
-        Log.d("TradingApp", "Calling Backend API at $BASE_URL...")
-
+        // Fetch PCR and AI Signal
         apiService.getPcrData(call = 500000.0, put = 650000.0).enqueue(object : Callback<PcrResponse> {
             override fun onResponse(call: Call<PcrResponse>, response: Response<PcrResponse>) {
                 if (response.isSuccessful) {
                     val pcrData = response.body()
-                    Log.d("TradingApp", "PCR Received: ${pcrData?.PCR}")
-                    
                     runOnUiThread {
                         pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})"
                         
@@ -97,15 +125,14 @@ class MainActivity : AppCompatActivity() {
                             aiSignal.text = "HOLD"
                         }
                     }
-                } else {
-                    Log.e("TradingApp", "API Response Error: ${response.code()}")
                 }
             }
-
             override fun onFailure(call: Call<PcrResponse>, t: Throwable) {
                 Log.e("TradingApp", "API Error: ${t.message}")
             }
         })
+        
+        // You can also fetch GEX, Max Pain, etc. here if needed
     }
 
     private fun setupChart(chart: CandleStickChart) {
@@ -140,5 +167,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
+        if (::webSocket.isInitialized) {
+            webSocket.close(1000, "Activity Destroyed")
+        }
     }
 }

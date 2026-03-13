@@ -29,18 +29,55 @@ data class StockResult(
     val shortName: String
 )
 
+// OI Heatmap data structure
+data class OiHeatmapResponse(
+    val heatmap: List<HeatmapEntry>
+)
+
+data class HeatmapEntry(
+    val strike: Int,
+    val call_oi: Long,
+    val put_oi: Long
+)
+
+// Gamma Exposure data structure
+data class GexResponse(
+    val gamma_exposure: Double
+)
+
+// Max Pain data structure
+data class MaxPainResponse(
+    val max_pain: Int
+)
+
+// AI Signal data structure
+data class AiSignalResponse(
+    val signal: String,
+    val confidence: Double
+)
+
 interface MarketApiService {
     
-    // To get the PCR calculation from your Render backend
     @GET("pcr")
     fun getPcrData(
         @Query("call") call: Double,
         @Query("put") put: Double
     ): Call<PcrResponse>
 
-    // To get stock data from your Render backend (which proxy-calls Yahoo Finance)
     @GET("stock/{symbol}")
     fun getStockData(
         @Path("symbol") symbol: String
     ): Call<StockResponse>
+
+    @GET("oi-heatmap")
+    fun getOiHeatmap(): Call<OiHeatmapResponse>
+
+    @GET("gamma-exposure")
+    fun getGammaExposure(): Call<GexResponse>
+
+    @GET("max-pain")
+    fun getMaxPain(): Call<MaxPainResponse>
+
+    @GET("ai-signal")
+    fun getAiSignal(): Call<AiSignalResponse>
 }
