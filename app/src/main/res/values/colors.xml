@@ -7,4 +7,15 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Sensibull Pro Theme Colors -->
+    <color name="sensibull_bg">#F8F9FA</color>
+    <color name="sensibull_green">#25A750</color>
+    <color name="sensibull_red">#D13A3B</color>
+    <color name="strike_pillar_bg">#F5F5F5</color>
+    <color name="nav_active">#2196F3</color>
+    <color name="nav_inactive">#757575</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
 </resources>

@@ -1,288 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#121212">
+    android:background="@color/sensibull_bg"
+    tools:context=".MainActivity">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/nav_host_fragment"
+        android:name="androidx.navigation.fragment.NavHostFragment"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        app:defaultNavHost="true"
+        app:layout_constraintBottom_toTopOf="@id/bottom_nav"
+        app:layout_constraintTop_toTopOf="parent"
+        app:navGraph="@navigation/nav_graph" />
+
+    <com.google.android.material.bottomnavigation.BottomNavigationView
+        android:id="@+id/bottom_nav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        tools:context=".MainActivity">
+        android:background="@color/white"
+        app:itemIconTint="@color/nav_active"
+        app:itemTextColor="@color/nav_active"
+        app:menu="@menu/bottom_nav_menu"
+        app:layout_constraintBottom_toBottomOf="parent" />
 
-        <!-- Header Section -->
-        <LinearLayout
-            android:id="@+id/headerLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="16dp"
-            android:background="#1E1E1E"
-            app:layout_constraintTop_toTopOf="parent">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/nifty_50"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/niftyPriceText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/nifty_price"
-                android:paddingEnd="4dp"
-                android:textColor="#4CAF50"
-                tools:ignore="RtlSymmetry" />
-        </LinearLayout>
-
-        <!-- Search Section -->
-        <LinearLayout
-            android:id="@+id/searchLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="8dp"
-            app:layout_constraintTop_toBottomOf="@id/headerLayout">
-
-            <EditText
-                android:id="@+id/etSymbol"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:hint="Enter Symbol (e.g. RELIANCE.NS)"
-                android:textColor="#FFFFFF"
-                android:textColorHint="#66FFFFFF"
-                android:backgroundTint="#FFFFFF"
-                android:inputType="text"
-                android:autofillHints="none" />
-
-            <Button
-                android:id="@+id/btnSearch"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Search"
-                android:backgroundTint="#2196F3" />
-        </LinearLayout>
-
-        <!-- Portfolio Summary Section -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/portfolioCard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:cardBackgroundColor="#1E1E1E"
-            app:cardCornerRadius="12dp"
-            app:layout_constraintTop_toBottomOf="@id/searchLayout">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/total_pnl"
-                    android:textColor="#BBBBBB"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/pnlValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:text="@string/pnl_value"
-                    android:textColor="#4CAF50"
-                    android:textSize="22sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Professional Combined Chart (Candles + Indicators) -->
-        <com.github.mikephil.charting.charts.CombinedChart
-            android:id="@+id/combinedChart"
-            android:layout_width="match_parent"
-            android:layout_height="250dp"
-            android:layout_margin="16dp"
-            android:background="#1E1E1E"
-            app:layout_constraintTop_toBottomOf="@id/portfolioCard" />
-
-        <!-- Buy/Sell Buttons -->
-        <LinearLayout
-            android:id="@+id/orderButtons"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:padding="16dp"
-            app:layout_constraintTop_toBottomOf="@id/combinedChart">
-
-            <Button
-                android:id="@+id/btnBuy"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginEnd="8dp"
-                android:text="@string/buy"
-                android:backgroundTint="#4CAF50"
-                android:textColor="#FFFFFF" />
-
-            <Button
-                android:id="@+id/btnSell"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="@string/sell"
-                android:backgroundTint="#F44336"
-                android:textColor="#FFFFFF" />
-        </LinearLayout>
-
-        <!-- AI Signal Panel -->
-        <LinearLayout
-            android:id="@+id/aiSignalPanel"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="#1E1E1E"
-            android:padding="16dp"
-            android:layout_margin="16dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical"
-            app:layout_constraintTop_toBottomOf="@id/orderButtons">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="AI Signal"
-                android:textColor="#AAAAAA"
-                android:textSize="16sp"/>
-
-            <TextView
-                android:id="@+id/aiSignal"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="BUY"
-                android:textColor="#00FF66"
-                android:textSize="22sp"
-                android:layout_marginStart="10dp"
-                android:textStyle="bold"/>
-        </LinearLayout>
-
-        <!-- OI Heatmap Section -->
-        <TextView
-            android:id="@+id/heatmapTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="OI Heatmap"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:layout_marginTop="20dp"
-            android:layout_marginStart="16dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/aiSignalPanel"/>
-
-        <LinearLayout
-            android:id="@+id/heatmapLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_margin="16dp"
-            android:background="#1E1E1E"
-            android:padding="8dp"
-            app:layout_constraintTop_toBottomOf="@id/heatmapTitle" />
-
-        <!-- Option Chain Section -->
-        <TextView
-            android:id="@+id/optionChainTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Option Chain"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:layout_marginTop="20dp"
-            android:layout_marginStart="16dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/heatmapLayout"/>
-
-        <TableLayout
-            android:id="@+id/optionChainTable"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            android:stretchColumns="*"
-            app:layout_constraintTop_toBottomOf="@id/optionChainTitle">
-
-            <TableRow>
-                <TextView android:text="Strike" android:textColor="#AAAAAA" android:padding="6dp" android:gravity="center"/>
-                <TextView android:text="Call OI" android:textColor="#AAAAAA" android:padding="6dp" android:gravity="center"/>
-                <TextView android:text="Put OI" android:textColor="#AAAAAA" android:padding="6dp" android:gravity="center"/>
-            </TableRow>
-
-            <TableRow>
-                <TextView android:text="22000" android:textColor="#FFFFFF" android:padding="6dp" android:gravity="center"/>
-                <TextView android:text="1.2M" android:textColor="#FF4444" android:padding="6dp" android:gravity="center"/>
-                <TextView android:text="1.8M" android:textColor="#00FF66" android:padding="6dp" android:gravity="center"/>
-            </TableRow>
-        </TableLayout>
-
-        <!-- Market Watch List -->
-        <TextView
-            android:id="@+id/marketWatchTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Market Watch"
-            android:textColor="#FFFFFF"
-            android:textSize="18sp"
-            android:layout_marginTop="20dp"
-            android:layout_marginStart="16dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/optionChainTable"/>
-
-        <LinearLayout
-            android:id="@+id/marketWatchList"
-            android:orientation="vertical"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="16dp"
-            app:layout_constraintTop_toBottomOf="@id/marketWatchTitle">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="RELIANCE  ₹2980  +1.2%"
-                android:textColor="#00FF66"
-                android:padding="12dp"
-                android:background="#1E1E1E"
-                android:layout_marginBottom="4dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="HDFCBANK  ₹1620  -0.5%"
-                android:textColor="#FF4444"
-                android:padding="12dp"
-                android:background="#1E1E1E"
-                android:layout_marginBottom="4dp"/>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="INFY  ₹1480  +0.7%"
-                android:textColor="#00FF66"
-                android:padding="12dp"
-                android:background="#1E1E1E"/>
-        </LinearLayout>
-
-        <!-- Bottom Padding for ScrollView -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="32dp"
-            app:layout_constraintTop_toBottomOf="@id/marketWatchList"/>
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-</ScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

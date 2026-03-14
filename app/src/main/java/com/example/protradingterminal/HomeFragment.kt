@@ -95,8 +95,8 @@ class HomeFragment : Fragment() {
                     if (stockData != null) {
                         activity?.runOnUiThread {
                             activeSymbol = stockData.shortName ?: symbol
-                            lastPrice = stockData.regularMarketPrice.toFloat()
-                            niftyPriceText.text = "₹${stockData.regularMarketPrice}"
+                            lastPrice = stockData.regularMarketPrice?.toFloat() ?: lastPrice
+                            niftyPriceText.text = "₹${stockData.regularMarketPrice ?: lastPrice}"
                             chartEntries.clear()
                             smaEntries.clear()
                             currentMinute = -1L
@@ -116,6 +116,8 @@ class HomeFragment : Fragment() {
     private fun initChartData() {
         chartEntries.add(CandleEntry(0f, lastPrice + 10, lastPrice - 20, lastPrice - 10, lastPrice + 5))
         chartEntries.add(CandleEntry(1f, lastPrice + 20, lastPrice - 10, lastPrice + 5, lastPrice + 15))
+        chartEntries.add(CandleEntry(2f, lastPrice + 15, lastPrice - 15, lastPrice + 15, lastPrice - 5))
+        chartEntries.add(CandleEntry(3f, lastPrice + 5, lastPrice - 25, lastPrice - 5, lastPrice))
         updateChartDisplay()
     }
 
@@ -235,7 +237,7 @@ class HomeFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        super.onDestroy()
+        super.onDestroyView()
         handler.removeCallbacksAndMessages(null)
         webSocket?.close(1000, "Fragment Destroyed")
     }
