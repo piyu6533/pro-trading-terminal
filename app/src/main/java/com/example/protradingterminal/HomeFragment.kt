@@ -21,6 +21,9 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class HomeFragment : Fragment() {
 
@@ -31,15 +34,17 @@ class HomeFragment : Fragment() {
     private lateinit var niftyPriceText: TextView
     private lateinit var etSymbol: EditText
     private lateinit var btnSearch: Button
+    private lateinit var marketWatchList: LinearLayout
     
     private lateinit var apiService: MarketApiService
     private var webSocket: WebSocket? = null
     
     private val chartEntries = ArrayList<CandleEntry>()
     private val smaEntries = ArrayList<Entry>()
-    private var lastPrice = 22147.90f
+    private var lastPrice = 0.0f
     private var currentMinute = -1L
     private var activeSymbol = "NIFTY 50"
+    private var activeTicker = "^NSEI"
 
     companion object {
         private const val TAG = "TradingAppDebug"
@@ -56,6 +61,7 @@ class HomeFragment : Fragment() {
         niftyPriceText = view.findViewById(R.id.niftyPriceText)
         etSymbol = view.findViewById(R.id.etSymbol)
         btnSearch = view.findViewById(R.id.btnSearch)
+        marketWatchList = view.findViewById(R.id.marketWatchList)
         
         view.findViewById<Button>(R.id.btnBuy).setOnClickListener { showOrderPopup("BUY") }
         view.findViewById<Button>(R.id.btnSell).setOnClickListener { showOrderPopup("SELL") }
@@ -64,8 +70,6 @@ class HomeFragment : Fragment() {
             val symbol = etSymbol.text.toString().trim()
             if (symbol.isNotEmpty()) performSearch(symbol)
         }
-        
-        initChartData()
 
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(60, TimeUnit.SECONDS)
@@ -81,13 +85,60 @@ class HomeFragment : Fragment() {
 
         apiService = retrofit.create(MarketApiService::class.java)
 
+        // Fetch real data for today immediately
+        fetchInitialMarketData()
         setupWebSocket(okHttpClient)
         startMarketDataUpdates()
         
         return view
     }
 
-    private fun performSearch(symbol: String) {
+    private fun fetchInitialMarketData() {
+        // 1. Get real Nifty Price to start with
+        performSearch("^NSEI", isInitial = true)
+        
+        // 2. Populate Watchlist with real data
+        updateWatchlistItems()
+    }
+
+    private fun updateWatchlistItems() {
+        val stocks = listOf("RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS")
+        marketWatchList.removeAllViews()
+        
+        for (symbol in stocks) {
+            apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
+                override fun onResponse(call: Call<StockResponse>, response: Response<StockResponse>) {
+                    val data = response.body()?.quoteResponse?.result?.firstOrNull()
+                    if (data != null) {
+                        activity?.runOnUiThread {
+                            addWatchlistItem(data)
+                        }
+                    }
+                }
+                override fun onFailure(call: Call<StockResponse>, t: Throwable) {}
+            })
+        }
+    }
+
+    private fun addWatchlistItem(data: StockResult) {
+        val row = TextView(context).apply {
+            val change = data.regularMarketChangePercent ?: 0.0
+            val color = if (change >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B")
+            val sign = if (change >= 0) "+" else ""
+            
+            text = "${data.symbol}   ₹${data.regularMarketPrice}   $sign${String.format("%.2f", change)}%"
+            setTextColor(color)
+            setPadding(12, 12, 12, 12)
+            textSize = 14f
+            setBackgroundColor(Color.parseColor("#F1F3F4"))
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.setMargins(0, 0, 0, 8)
+            layoutParams = params
+        }
+        marketWatchList.addView(row)
+    }
+
+    private fun performSearch(symbol: String, isInitial: Boolean = false) {
         apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
             override fun onResponse(call: Call<StockResponse>, response: Response<StockResponse>) {
                 if (response.isSuccessful) {
@@ -95,12 +146,18 @@ class HomeFragment : Fragment() {
                     if (stockData != null) {
                         activity?.runOnUiThread {
                             activeSymbol = stockData.shortName ?: symbol
-                            lastPrice = stockData.regularMarketPrice?.toFloat() ?: lastPrice
-                            niftyPriceText.text = "₹${stockData.regularMarketPrice ?: lastPrice}"
+                            activeTicker = symbol
+                            lastPrice = stockData.regularMarketPrice?.toFloat() ?: 0f
+                            niftyPriceText.text = "₹$lastPrice"
+                            
                             chartEntries.clear()
                             smaEntries.clear()
                             currentMinute = -1L
                             initChartData()
+                            
+                            if (!isInitial) {
+                                Toast.makeText(context, "Loaded $activeSymbol", Toast.LENGTH_SHORT).show()
+                            }
                         }
                     }
                 }
@@ -109,15 +166,13 @@ class HomeFragment : Fragment() {
         })
     }
 
-    private fun showOrderPopup(type: String) {
-        Toast.makeText(context, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
-    }
-
     private fun initChartData() {
-        chartEntries.add(CandleEntry(0f, lastPrice + 10, lastPrice - 20, lastPrice - 10, lastPrice + 5))
-        chartEntries.add(CandleEntry(1f, lastPrice + 20, lastPrice - 10, lastPrice + 5, lastPrice + 15))
-        chartEntries.add(CandleEntry(2f, lastPrice + 15, lastPrice - 15, lastPrice + 15, lastPrice - 5))
-        chartEntries.add(CandleEntry(3f, lastPrice + 5, lastPrice - 25, lastPrice - 5, lastPrice))
+        if (lastPrice == 0f) return
+        // Generate mock historical candles based on today's real price
+        for (i in 0..3) {
+            val offset = (Math.random() * 20 - 10).toFloat()
+            chartEntries.add(CandleEntry(i.toFloat(), lastPrice + offset + 5, lastPrice + offset - 5, lastPrice + offset - 2, lastPrice + offset + 2))
+        }
         updateChartDisplay()
     }
 
@@ -128,7 +183,8 @@ class HomeFragment : Fragment() {
                 try {
                     val json = JSONObject(text)
                     val price = json.getDouble("price").toFloat()
-                    if (activeSymbol.contains("NIFTY", ignoreCase = true)) {
+                    // Only use WS for NIFTY updates as backend WS is NIFTY specific
+                    if (activeTicker == "^NSEI") {
                         lastPrice = price
                         activity?.runOnUiThread {
                             niftyPriceText.text = "₹$price"
@@ -163,14 +219,16 @@ class HomeFragment : Fragment() {
     private fun updateChartDisplay() {
         val combinedData = CombinedData()
         val candleDataSet = CandleDataSet(chartEntries, "$activeSymbol Live")
-        candleDataSet.shadowColor = Color.LTGRAY
-        candleDataSet.shadowWidth = 0.8f
-        candleDataSet.decreasingColor = Color.RED
-        candleDataSet.decreasingPaintStyle = Paint.Style.FILL
-        candleDataSet.increasingColor = Color.parseColor("#25A750")
-        candleDataSet.increasingPaintStyle = Paint.Style.FILL
-        candleDataSet.neutralColor = Color.BLUE
-        candleDataSet.setDrawValues(false)
+        candleDataSet.apply {
+            shadowColor = Color.DKGRAY
+            shadowWidth = 0.8f
+            decreasingColor = Color.parseColor("#D13A3B")
+            decreasingPaintStyle = Paint.Style.FILL
+            increasingColor = Color.parseColor("#25A750")
+            increasingPaintStyle = Paint.Style.FILL
+            neutralColor = Color.BLUE
+            setDrawValues(false)
+        }
         combinedData.setData(CandleData(candleDataSet))
 
         if (chartEntries.size >= 3) {
@@ -179,23 +237,26 @@ class HomeFragment : Fragment() {
                 val avg = (chartEntries[i].close + chartEntries[i-1].close + chartEntries[i-2].close) / 3
                 smaEntries.add(Entry(i.toFloat(), avg))
             }
-            val lineDataSet = LineDataSet(smaEntries, "SMA (3)")
-            lineDataSet.color = Color.BLUE
-            lineDataSet.lineWidth = 2f
-            lineDataSet.setDrawCircles(false)
-            lineDataSet.setDrawValues(false)
+            val lineDataSet = LineDataSet(smaEntries, "SMA (3)").apply {
+                color = Color.parseColor("#2196F3")
+                lineWidth = 2f
+                setDrawCircles(false)
+                setDrawValues(false)
+            }
             combinedData.setData(LineData(lineDataSet))
         }
 
-        combinedChart.data = combinedData
-        combinedChart.setBackgroundColor(Color.WHITE)
-        combinedChart.description.isEnabled = false
-        combinedChart.legend.textColor = Color.BLACK
-        combinedChart.xAxis.textColor = Color.BLACK
-        combinedChart.axisLeft.textColor = Color.BLACK
-        combinedChart.axisRight.textColor = Color.BLACK
-        combinedChart.moveViewToX(chartEntries.size.toFloat())
-        combinedChart.invalidate() 
+        combinedChart.apply {
+            data = combinedData
+            setBackgroundColor(Color.WHITE)
+            description.isEnabled = false
+            legend.textColor = Color.BLACK
+            xAxis.textColor = Color.BLACK
+            axisLeft.textColor = Color.BLACK
+            axisRight.textColor = Color.BLACK
+            moveViewToX(chartEntries.size.toFloat())
+            invalidate()
+        }
     }
 
     private fun startMarketDataUpdates() {
@@ -234,6 +295,10 @@ class HomeFragment : Fragment() {
             }
             override fun onFailure(call: Call<PcrResponse>, t: Throwable) {}
         })
+    }
+
+    private fun showOrderPopup(type: String) {
+        Toast.makeText(context, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroyView() {
