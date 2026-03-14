@@ -15,4 +15,13 @@
     <string name="portfolio">Portfolio</string>
     <string name="total_pnl">Total P&#38;L</string>
     <string name="pnl_value">+₹12,450.50 (+2.1%)</string>
+
+    <!-- New formatting strings -->
+    <string name="price_format">₹%1$.2f</string>
+    <string name="watchlist_item_format">%1$s   ₹%2$.2f   %3$s%4$.2f%%</string>
+    <string name="pnl_format">₹%1$.2f</string>
+    <string name="order_confirmed_format">Order Confirmed: %1$s %2$s at ₹%3$.2f</string>
+    <string name="qty_details_format">Qty: %1$d • Avg: ₹%2$.2f</string>
+    <string name="ltp_format">LTP: ₹%1$.2f</string>
+    <string name="pnl_display_format">%1$s₹%2$.2f</string>
 </resources>
