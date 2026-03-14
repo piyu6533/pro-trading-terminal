@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416765186621",
+    "project_id": "pro-trading-terminal",
+    "storage_bucket": "pro-trading-terminal.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416765186621:android:8ae21e06bb64e503431054",
+        "android_client_info": {
+          "package_name": "com.example.protradingterminal"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDzWTv8Hkjxuttk-vZm3dZC3PcqGtcE1xg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
