@@ -15,11 +15,14 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.Locale
 
 class AnalyseFragment : Fragment() {
 
     private lateinit var rvOptionChain: RecyclerView
     private lateinit var tvTitle: TextView
+    private lateinit var tvMaxPainValue: TextView
+    private lateinit var tvGexValue: TextView
     private lateinit var adapter: OptionChainAdapter
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var apiService: MarketApiService
@@ -34,6 +37,9 @@ class AnalyseFragment : Fragment() {
         
         rvOptionChain = view.findViewById(R.id.rvOptionChain)
         tvTitle = view.findViewById(R.id.tvOptionChainTitle)
+        tvMaxPainValue = view.findViewById(R.id.tvMaxPainValue)
+        tvGexValue = view.findViewById(R.id.tvGexValue)
+        
         adapter = OptionChainAdapter(emptyList())
         rvOptionChain.adapter = adapter
 
@@ -48,7 +54,8 @@ class AnalyseFragment : Fragment() {
         PortfolioManager.activeSymbolName.observe(viewLifecycleOwner) { name ->
             currentSymbol = name
             tvTitle.text = "Option Chain ($name)"
-            fetchOptionChainData() // Fetch immediately on change
+            fetchAnalyticsData()
+            fetchOptionChainData()
         }
 
         startDataUpdates()
@@ -58,14 +65,42 @@ class AnalyseFragment : Fragment() {
     private fun startDataUpdates() {
         handler.postDelayed(object : Runnable {
             override fun run() {
+                fetchAnalyticsData()
                 fetchOptionChainData()
-                handler.postDelayed(this, 10000)
+                handler.postDelayed(this, 15000)
             }
         }, 0)
     }
 
+    private fun fetchAnalyticsData() {
+        // Fetch Max Pain
+        apiService.getMaxPain().enqueue(object : Callback<MaxPainResponse> {
+            override fun onResponse(call: Call<MaxPainResponse>, response: Response<MaxPainResponse>) {
+                if (response.isSuccessful) {
+                    val maxPain = response.body()?.max_pain
+                    activity?.runOnUiThread {
+                        tvMaxPainValue.text = maxPain?.toString() ?: "---"
+                    }
+                }
+            }
+            override fun onFailure(call: Call<MaxPainResponse>, t: Throwable) {}
+        })
+
+        // Fetch GEX
+        apiService.getGammaExposure().enqueue(object : Callback<GexResponse> {
+            override fun onResponse(call: Call<GexResponse>, response: Response<GexResponse>) {
+                if (response.isSuccessful) {
+                    val gex = response.body()?.gamma_exposure
+                    activity?.runOnUiThread {
+                        tvGexValue.text = if (gex != null) String.format(Locale.US, "%.2f Cr", gex / 10000000.0) else "---"
+                    }
+                }
+            }
+            override fun onFailure(call: Call<GexResponse>, t: Throwable) {}
+        })
+    }
+
     private fun fetchOptionChainData() {
-        // Fetch data for the currently active symbol
         apiService.getOiHeatmap(currentSymbol).enqueue(object : Callback<OiHeatmapResponse> {
             override fun onResponse(call: Call<OiHeatmapResponse>, response: Response<OiHeatmapResponse>) {
                 if (response.isSuccessful) {
