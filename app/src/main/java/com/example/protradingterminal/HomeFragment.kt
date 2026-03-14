@@ -1,7 +1,7 @@
 package com.example.protradingterminal
 
+import android.annotation.SuppressLint
 import android.graphics.Color
-import android.graphics.Paint
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,10 +9,11 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.*
 import androidx.fragment.app.Fragment
-import com.github.mikephil.charting.charts.CombinedChart
-import com.github.mikephil.charting.data.*
 import okhttp3.*
 import org.json.JSONObject
 import retrofit2.Call
@@ -21,14 +22,12 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 class HomeFragment : Fragment() {
 
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var combinedChart: CombinedChart
+    private lateinit var tradingViewChart: WebView
     private lateinit var pnlValue: TextView
     private lateinit var aiSignal: TextView
     private lateinit var niftyPriceText: TextView
@@ -39,14 +38,10 @@ class HomeFragment : Fragment() {
     private lateinit var apiService: MarketApiService
     private var webSocket: WebSocket? = null
     
-    private val chartEntries = ArrayList<CandleEntry>()
-    private val smaEntries = ArrayList<Entry>()
     private var lastPrice = 0.0f
-    private var currentMinute = -1L
     private var activeSymbol = "NIFTY 50"
     private var activeTicker = "^NSEI"
     
-    // Map to keep track of watchlist views for real-time updates
     private val watchListViews = HashMap<String, TextView>()
 
     companion object {
@@ -58,7 +53,7 @@ class HomeFragment : Fragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         val view = inflater.inflate(R.layout.fragment_home, container, false)
         
-        combinedChart = view.findViewById(R.id.combinedChart)
+        tradingViewChart = view.findViewById(R.id.tradingViewChart)
         pnlValue = view.findViewById(R.id.pnlValue)
         aiSignal = view.findViewById(R.id.aiSignal)
         niftyPriceText = view.findViewById(R.id.niftyPriceText)
@@ -66,6 +61,8 @@ class HomeFragment : Fragment() {
         btnSearch = view.findViewById(R.id.btnSearch)
         marketWatchList = view.findViewById(R.id.marketWatchList)
         
+        setupWebView()
+
         view.findViewById<Button>(R.id.btnBuy).setOnClickListener { 
             PortfolioManager.addTrade(activeTicker, "BUY", 1, lastPrice)
             showOrderPopup("BUY") 
@@ -94,13 +91,11 @@ class HomeFragment : Fragment() {
 
         apiService = retrofit.create(MarketApiService::class.java)
 
-        // Observe total P&L
         PortfolioManager.totalPnl.observe(viewLifecycleOwner) { totalPnl ->
             pnlValue.text = "₹${String.format(Locale.US, "%.2f", totalPnl)}"
             pnlValue.setTextColor(if (totalPnl >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B"))
         }
 
-        // Fetch real data for today immediately
         fetchInitialMarketData()
         setupWebSocket(okHttpClient)
         startMarketDataUpdates()
@@ -108,11 +103,62 @@ class HomeFragment : Fragment() {
         return view
     }
 
-    private fun fetchInitialMarketData() {
-        // 1. Get real Nifty Price to start with
-        performSearch("^NSEI", isInitial = true)
+    private fun showOrderPopup(type: String) {
+        Toast.makeText(context, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setupWebView() {
+        val webSettings: WebSettings = tradingViewChart.settings
+        webSettings.javaScriptEnabled = true
+        webSettings.domStorageEnabled = true
+        tradingViewChart.webViewClient = WebViewClient()
+        loadTradingViewChart("NSE:NIFTY")
+    }
+
+    private fun loadTradingViewChart(symbol: String) {
+        val tvSymbol = when (symbol) {
+            "^NSEI" -> "NSE:NIFTY"
+            "RELIANCE.NS" -> "NSE:RELIANCE"
+            "TCS.NS" -> "NSE:TCS"
+            "INFY.NS" -> "NSE:INFY"
+            "HDFCBANK.NS" -> "NSE:HDFCBANK"
+            else -> if (symbol.contains(".NS")) "NSE:${symbol.substringBefore(".NS")}" else symbol
+        }
+
+        val html = """
+            <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            </head>
+            <body style="margin:0;padding:0;">
+                <div id="tradingview_chart" style="height:100vh;width:100vw;"></div>
+                <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+                <script type="text/javascript">
+                new TradingView.widget({
+                    "autosize": true,
+                    "symbol": "$tvSymbol",
+                    "interval": "1",
+                    "timezone": "Asia/Kolkata",
+                    "theme": "light",
+                    "style": "1",
+                    "locale": "in",
+                    "toolbar_bg": "#f1f3f6",
+                    "enable_publishing": false,
+                    "hide_top_toolbar": false,
+                    "save_image": false,
+                    "container_id": "tradingview_chart"
+                });
+                </script>
+            </body>
+            </html>
+        """.trimIndent()
         
-        // 2. Populate Watchlist with initial real data
+        tradingViewChart.loadDataWithBaseURL("https://s3.tradingview.com", html, "text/html", "UTF-8", null)
+    }
+
+    private fun fetchInitialMarketData() {
+        performSearch("^NSEI", isInitial = true)
         updateWatchlistItems()
     }
 
@@ -168,10 +214,7 @@ class HomeFragment : Fragment() {
                             lastPrice = stockData.regularMarketPrice?.toFloat() ?: 0f
                             niftyPriceText.text = "₹$lastPrice"
                             
-                            chartEntries.clear()
-                            smaEntries.clear()
-                            currentMinute = -1L
-                            initChartData()
+                            loadTradingViewChart(activeTicker)
                             
                             if (!isInitial) {
                                 Toast.makeText(context, "Loaded $activeSymbol", Toast.LENGTH_SHORT).show()
@@ -184,34 +227,20 @@ class HomeFragment : Fragment() {
         })
     }
 
-    private fun initChartData() {
-        if (lastPrice == 0f) return
-        // Generate mock historical candles based on today's real price
-        for (i in 0..3) {
-            val offset = (Math.random() * 20 - 10).toFloat()
-            chartEntries.add(CandleEntry(i.toFloat(), lastPrice + offset + 5, lastPrice + offset - 5, lastPrice + offset - 2, lastPrice + offset + 2))
-        }
-        updateChartDisplay()
-    }
-
     private fun setupWebSocket(client: OkHttpClient) {
         val request = Request.Builder().url(WS_URL).build()
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val json = JSONObject(text)
-                    
                     activity?.runOnUiThread {
-                        // 1. Update the active stock (Main Display and Chart)
                         if (json.has(activeTicker)) {
                             val price = json.getDouble(activeTicker).toFloat()
                             lastPrice = price
                             niftyPriceText.text = "₹$price"
-                            handlePriceUpdate(price)
                             PortfolioManager.updatePrice(activeTicker, lastPrice)
                         }
                         
-                        // 2. Update all items in the watchlist
                         for (symbol in watchListViews.keys) {
                             if (json.has(symbol)) {
                                 val price = json.getDouble(symbol)
@@ -235,66 +264,6 @@ class HomeFragment : Fragment() {
                 handler.postDelayed({ setupWebSocket(client) }, 10000)
             }
         })
-    }
-
-    private fun handlePriceUpdate(price: Float) {
-        val now = System.currentTimeMillis() / 1000 / 60
-        if (currentMinute == -1L || now > currentMinute) {
-            currentMinute = now
-            chartEntries.add(CandleEntry(chartEntries.size.toFloat(), price, price, price, price))
-            if (chartEntries.size > 30) chartEntries.removeAt(0)
-        } else {
-            val lastEntry = chartEntries.lastOrNull()
-            if (lastEntry != null) {
-                if (price > lastEntry.high) lastEntry.high = price
-                if (price < lastEntry.low) lastEntry.low = price
-                lastEntry.close = price
-            }
-        }
-        updateChartDisplay()
-    }
-
-    private fun updateChartDisplay() {
-        val combinedData = CombinedData()
-        val candleDataSet = CandleDataSet(chartEntries, "$activeSymbol Live")
-        candleDataSet.apply {
-            shadowColor = Color.DKGRAY
-            shadowWidth = 0.8f
-            decreasingColor = Color.parseColor("#D13A3B")
-            decreasingPaintStyle = Paint.Style.FILL
-            increasingColor = Color.parseColor("#25A750")
-            increasingPaintStyle = Paint.Style.FILL
-            neutralColor = Color.BLUE
-            setDrawValues(false)
-        }
-        combinedData.setData(CandleData(candleDataSet))
-
-        if (chartEntries.size >= 3) {
-            smaEntries.clear()
-            for (i in 2 until chartEntries.size) {
-                val avg = (chartEntries[i].close + chartEntries[i-1].close + chartEntries[i-2].close) / 3
-                smaEntries.add(Entry(i.toFloat(), avg))
-            }
-            val lineDataSet = LineDataSet(smaEntries, "SMA (3)").apply {
-                color = Color.parseColor("#2196F3")
-                lineWidth = 2f
-                setDrawCircles(false)
-                setDrawValues(false)
-            }
-            combinedData.setData(LineData(lineDataSet))
-        }
-
-        combinedChart.apply {
-            data = combinedData
-            setBackgroundColor(Color.WHITE)
-            description.isEnabled = false
-            legend.textColor = Color.BLACK
-            xAxis.textColor = Color.BLACK
-            axisLeft.textColor = Color.BLACK
-            axisRight.textColor = Color.BLACK
-            moveViewToX(chartEntries.size.toFloat())
-            invalidate()
-        }
     }
 
     private fun startMarketDataUpdates() {
@@ -323,20 +292,6 @@ class HomeFragment : Fragment() {
             }
             override fun onFailure(call: Call<AiSignalResponse>, t: Throwable) {}
         })
-
-        apiService.getPcrData(call = 500000.0, put = 650000.0).enqueue(object : Callback<PcrResponse> {
-            override fun onResponse(call: Call<PcrResponse>, response: Response<PcrResponse>) {
-                if (response.isSuccessful) {
-                    val pcrData = response.body()
-                    // PCR is no longer displayed in pnlValue, PortfolioManager handles that
-                }
-            }
-            override fun onFailure(call: Call<PcrResponse>, t: Throwable) {}
-        })
-    }
-
-    private fun showOrderPopup(type: String) {
-        Toast.makeText(context, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
     }
 
     override fun onDestroyView() {
