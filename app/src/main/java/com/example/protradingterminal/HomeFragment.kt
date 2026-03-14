@@ -2,6 +2,7 @@ package com.example.protradingterminal
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -76,8 +77,13 @@ class HomeFragment : Fragment() {
         }
 
         btnSearch.setOnClickListener {
-            val symbol = etSymbol.text.toString().trim()
-            if (symbol.isNotEmpty()) performSearch(symbol)
+            val query = etSymbol.text.toString().trim()
+            if (query.isNotEmpty()) {
+                val ticker = mapQueryToTicker(query)
+                performSearch(ticker)
+            } else {
+                Toast.makeText(context, "Please enter a symbol", Toast.LENGTH_SHORT).show()
+            }
         }
 
         val okHttpClient = OkHttpClient.Builder()
@@ -106,6 +112,18 @@ class HomeFragment : Fragment() {
         return view
     }
 
+    private fun mapQueryToTicker(query: String): String {
+        return when (query.uppercase()) {
+            "NIFTY", "NIFTY50", "NIFTY 50" -> "^NSEI"
+            "BANKNIFTY", "BANK NIFTY" -> "^NSEBANK"
+            "RELIANCE" -> "RELIANCE.NS"
+            "TCS" -> "TCS.NS"
+            "INFY", "INFOSYS" -> "INFY.NS"
+            "HDFC", "HDFCBANK" -> "HDFCBANK.NS"
+            else -> if (query.contains(".") || query.contains("^")) query else "${query.uppercase()}.NS"
+        }
+    }
+
     private fun showOrderPopup(type: String) {
         Toast.makeText(context, "Order Confirmed: $type $activeSymbol at ₹$lastPrice", Toast.LENGTH_LONG).show()
     }
@@ -119,14 +137,14 @@ class HomeFragment : Fragment() {
         loadTradingViewChart("NSE:NIFTY")
     }
 
-    private fun loadTradingViewChart(symbol: String) {
-        val tvSymbol = when (symbol) {
+    private fun loadTradingViewChart(ticker: String) {
+        val tvSymbol = when (ticker) {
             "^NSEI" -> "NSE:NIFTY"
-            "RELIANCE.NS" -> "NSE:RELIANCE"
-            "TCS.NS" -> "NSE:TCS"
-            "INFY.NS" -> "NSE:INFY"
-            "HDFCBANK.NS" -> "NSE:HDFCBANK"
-            else -> if (symbol.contains(".NS")) "NSE:${symbol.substringBefore(".NS")}" else symbol
+            "^NSEBANK" -> "NSE:BANKNIFTY"
+            else -> {
+                if (ticker.contains(".NS")) "NSE:${ticker.substringBefore(".NS")}"
+                else ticker
+            }
         }
 
         val html = """
@@ -134,7 +152,7 @@ class HomeFragment : Fragment() {
             <head>
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
             </head>
-            <body style="margin:0;padding:0;">
+            <body style="margin:0;padding:0;background-color:#121212;">
                 <div id="tradingview_chart" style="height:100vh;width:100vw;"></div>
                 <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
                 <script type="text/javascript">
@@ -143,10 +161,10 @@ class HomeFragment : Fragment() {
                     "symbol": "$tvSymbol",
                     "interval": "1",
                     "timezone": "Asia/Kolkata",
-                    "theme": "light",
+                    "theme": "dark",
                     "style": "1",
                     "locale": "in",
-                    "toolbar_bg": "#f1f3f6",
+                    "toolbar_bg": "#1e1e1e",
                     "enable_publishing": false,
                     "hide_top_toolbar": false,
                     "save_image": false,
@@ -166,7 +184,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun updateWatchlistItems() {
-        val stocks = listOf("RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS")
+        val stocks = listOf("RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "^NSEBANK")
         marketWatchList.removeAllViews()
         watchListViews.clear()
         
@@ -186,34 +204,53 @@ class HomeFragment : Fragment() {
     }
 
     private fun addWatchlistItem(data: StockResult) {
-        val symbol = data.symbol ?: return
-        val row = TextView(context).apply {
+        val ticker = data.symbol ?: return
+        val row = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(16, 16, 16, 16)
+            setBackgroundColor("#1E1E1E".toColorInt())
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.setMargins(0, 0, 0, 4)
+            layoutParams = params
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                performSearch(ticker)
+            }
+        }
+
+        val nameView = TextView(context).apply {
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            text = data.shortName ?: ticker
+            setTextColor(Color.WHITE)
+            setTypeface(null, Typeface.BOLD)
+        }
+
+        val priceView = TextView(context).apply {
             val change = data.regularMarketChangePercent ?: 0.0
             val color = if (change >= 0) "#25A750".toColorInt() else "#D13A3B".toColorInt()
             val sign = if (change >= 0) "+" else ""
             
-            text = "$symbol   ₹${data.regularMarketPrice}   $sign${String.format(Locale.US, "%.2f", change)}%"
+            text = "₹${data.regularMarketPrice}\n$sign${String.format(Locale.US, "%.2f", change)}%"
             setTextColor(color)
-            setPadding(12, 12, 12, 12)
-            textSize = 14f
-            setBackgroundColor("#F1F3F4".toColorInt())
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.setMargins(0, 0, 0, 8)
-            layoutParams = params
+            gravity = android.view.Gravity.END
         }
+
+        row.addView(nameView)
+        row.addView(priceView)
         marketWatchList.addView(row)
-        watchListViews[symbol] = row
+        watchListViews[ticker] = priceView
     }
 
-    private fun performSearch(symbol: String, isInitial: Boolean = false) {
-        apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
+    private fun performSearch(ticker: String, isInitial: Boolean = false) {
+        apiService.getStockData(ticker).enqueue(object : Callback<StockResponse> {
             override fun onResponse(call: Call<StockResponse>, response: Response<StockResponse>) {
                 if (response.isSuccessful) {
                     val stockData = response.body()?.quoteResponse?.result?.firstOrNull()
                     if (stockData != null) {
                         activity?.runOnUiThread {
-                            activeSymbol = stockData.shortName ?: symbol
-                            activeTicker = symbol
+                            activeSymbol = stockData.shortName ?: ticker
+                            activeTicker = ticker
                             headerSymbolText.text = activeSymbol
                             lastPrice = stockData.regularMarketPrice?.toFloat() ?: 0f
                             niftyPriceText.text = "₹$lastPrice"
@@ -227,7 +264,11 @@ class HomeFragment : Fragment() {
                     }
                 }
             }
-            override fun onFailure(call: Call<StockResponse>, t: Throwable) {}
+            override fun onFailure(call: Call<StockResponse>, t: Throwable) {
+                activity?.runOnUiThread {
+                    Toast.makeText(context, "Network Error", Toast.LENGTH_SHORT).show()
+                }
+            }
         })
     }
 
@@ -250,12 +291,10 @@ class HomeFragment : Fragment() {
                                 val price = json.getDouble(symbol)
                                 PortfolioManager.updatePrice(symbol, price.toFloat())
                                 val view = watchListViews[symbol]
-                                val currentText = view?.text.toString()
                                 if (view != null) {
-                                    val parts = currentText.split("   ")
-                                    if (parts.size >= 3) {
-                                        view.text = "${parts[0]}   ₹$price   ${parts[2]}"
-                                    }
+                                    val currentText = view.text.toString()
+                                    val changePart = currentText.substringAfter("\n")
+                                    view.text = "₹$price\n$changePart"
                                 }
                             }
                         }

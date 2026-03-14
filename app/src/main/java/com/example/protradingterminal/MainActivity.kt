@@ -1,8 +1,6 @@
 package com.example.protradingterminal
 
 import android.os.Bundle
-import android.view.ViewGroup
-import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.setupWithNavController
@@ -24,16 +22,5 @@ class MainActivity : AppCompatActivity() {
         // Setup BottomNavigationView with NavController
         val navView: BottomNavigationView = findViewById(R.id.bottom_nav)
         navView.setupWithNavController(navController)
-
-        // --- TEST CRASH BUTTON ---
-        val crashButton = Button(this)
-        crashButton.setText(R.string.test_crash)
-        crashButton.setOnClickListener {
-            throw RuntimeException("Test Crash") // Force a crash
-        }
-
-        addContentView(crashButton, ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 }
