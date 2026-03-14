@@ -45,6 +45,9 @@ class HomeFragment : Fragment() {
     private var currentMinute = -1L
     private var activeSymbol = "NIFTY 50"
     private var activeTicker = "^NSEI"
+    
+    // Map to keep track of watchlist views for real-time updates
+    private val watchListViews = HashMap<String, TextView>()
 
     companion object {
         private const val TAG = "TradingAppDebug"
@@ -97,13 +100,14 @@ class HomeFragment : Fragment() {
         // 1. Get real Nifty Price to start with
         performSearch("^NSEI", isInitial = true)
         
-        // 2. Populate Watchlist with real data
+        // 2. Populate Watchlist with initial real data
         updateWatchlistItems()
     }
 
     private fun updateWatchlistItems() {
         val stocks = listOf("RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS")
         marketWatchList.removeAllViews()
+        watchListViews.clear()
         
         for (symbol in stocks) {
             apiService.getStockData(symbol).enqueue(object : Callback<StockResponse> {
@@ -121,12 +125,13 @@ class HomeFragment : Fragment() {
     }
 
     private fun addWatchlistItem(data: StockResult) {
+        val symbol = data.symbol ?: return
         val row = TextView(context).apply {
             val change = data.regularMarketChangePercent ?: 0.0
             val color = if (change >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B")
             val sign = if (change >= 0) "+" else ""
             
-            text = "${data.symbol}   ₹${data.regularMarketPrice}   $sign${String.format("%.2f", change)}%"
+            text = "$symbol   ₹${data.regularMarketPrice}   $sign${String.format(Locale.US, "%.2f", change)}%"
             setTextColor(color)
             setPadding(12, 12, 12, 12)
             textSize = 14f
@@ -136,6 +141,7 @@ class HomeFragment : Fragment() {
             layoutParams = params
         }
         marketWatchList.addView(row)
+        watchListViews[symbol] = row
     }
 
     private fun performSearch(symbol: String, isInitial: Boolean = false) {
@@ -182,16 +188,39 @@ class HomeFragment : Fragment() {
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val json = JSONObject(text)
-                    val price = json.getDouble("price").toFloat()
-                    // Only use WS for NIFTY updates as backend WS is NIFTY specific
-                    if (activeTicker == "^NSEI") {
-                        lastPrice = price
-                        activity?.runOnUiThread {
+                    
+                    activity?.runOnUiThread {
+                        // 1. Update the active stock (Main Display and Chart)
+                        if (json.has(activeTicker)) {
+                            val price = json.getDouble(activeTicker).toFloat()
+                            lastPrice = price
                             niftyPriceText.text = "₹$price"
                             handlePriceUpdate(price)
                         }
+                        
+                        // 2. Update all items in the watchlist
+                        for (symbol in watchListViews.keys) {
+                            if (json.has(symbol)) {
+                                val price = json.getDouble(symbol)
+                                val view = watchListViews[symbol]
+                                // Note: For a true live feeling, we'd also need the change% from the stream
+                                // For now we just update the price part of the string
+                                val currentText = view?.text.toString()
+                                val tickerPart = currentText.substringBefore("   ₹")
+                                val changePart = currentText.substringAfterLast("%").let { if (it.isEmpty()) currentText.substringAfterLast("   ") else it }
+                                // Simplified update logic for the demo
+                                if (view != null) {
+                                    val parts = currentText.split("   ")
+                                    if (parts.size >= 3) {
+                                        view.text = "${parts[0]}   ₹$price   ${parts[2]}"
+                                    }
+                                }
+                            }
+                        }
                     }
-                } catch (e: Exception) {}
+                } catch (e: Exception) {
+                    Log.e(TAG, "WS Parse Error: ${e.message}")
+                }
             }
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: okhttp3.Response?) {
                 handler.postDelayed({ setupWebSocket(client) }, 10000)

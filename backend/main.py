@@ -65,15 +65,35 @@ def get_oi_heatmap():
     ]
     return {"heatmap": data}
 
-# --- WEBSOCKET FOR REAL-TIME PRICE ---
+@app.get("/stock/{symbol}")
+def get_stock(symbol: str):
+    url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={symbol}"
+    try:
+        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+        return response.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+# --- MULTI-SYMBOL WEBSOCKET ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    price = 22147.90
+    # Base prices for simulation
+    prices = {
+        "^NSEI": 22147.90,
+        "RELIANCE.NS": 2980.00,
+        "TCS.NS": 3850.00,
+        "INFY.NS": 1420.00,
+        "HDFCBANK.NS": 1610.00
+    }
     try:
         while True:
-            price += (np.random.rand() - 0.5) * 5
-            await websocket.send_json({"price": round(price, 2)})
+            # Update all prices slightly
+            for symbol in prices:
+                prices[symbol] += (np.random.rand() - 0.5) * 5
+                prices[symbol] = round(prices[symbol], 2)
+
+            await websocket.send_json(prices)
             await asyncio.sleep(1)
     except Exception:
         pass
