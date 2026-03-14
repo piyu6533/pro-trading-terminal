@@ -3,9 +3,22 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
-    android:padding="12dp"
-    android:background="@color/white">
+    android:padding="8dp"
+    android:background="@color/white"
+    android:gravity="center_vertical">
 
+    <!-- Call Delta -->
+    <TextView
+        android:id="@+id/tvCallDelta"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.6"
+        android:text="0.50"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="@color/text_secondary" />
+
+    <!-- Call OI -->
     <TextView
         android:id="@+id/tvCallOi"
         android:layout_width="0dp"
@@ -15,16 +28,19 @@
         android:gravity="center"
         android:textColor="@color/sensibull_red" />
 
+    <!-- Strike -->
     <TextView
         android:id="@+id/tvStrike"
-        android:layout_width="80dp"
+        android:layout_width="70dp"
         android:layout_height="wrap_content"
         android:text="22000"
         android:gravity="center"
         android:textStyle="bold"
+        android:paddingVertical="4dp"
         android:background="@color/strike_pillar_bg"
         android:textColor="@color/text_primary" />
 
+    <!-- Put OI -->
     <TextView
         android:id="@+id/tvPutOi"
         android:layout_width="0dp"
@@ -33,5 +49,16 @@
         android:text="0.0M"
         android:gravity="center"
         android:textColor="@color/sensibull_green" />
+
+    <!-- Put Delta -->
+    <TextView
+        android:id="@+id/tvPutDelta"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="0.6"
+        android:text="0.50"
+        android:gravity="center"
+        android:textSize="12sp"
+        android:textColor="@color/text_secondary" />
 
 </LinearLayout>

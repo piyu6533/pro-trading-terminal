@@ -29,7 +29,7 @@ data class StockResult(
     val shortName: String?
 )
 
-// OI Heatmap data structure
+// OI Heatmap data structure (Expanded with Greeks)
 data class OiHeatmapResponse(
     val heatmap: List<HeatmapEntry>?
 )
@@ -37,7 +37,10 @@ data class OiHeatmapResponse(
 data class HeatmapEntry(
     val strike: Int?,
     val call_oi: Long?,
-    val put_oi: Long?
+    val put_oi: Long?,
+    val call_delta: Double? = 0.0,
+    val put_delta: Double? = 0.0,
+    val theta: Double? = 0.0
 )
 
 // Gamma Exposure data structure
