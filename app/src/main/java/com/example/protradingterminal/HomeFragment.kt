@@ -255,6 +255,10 @@ class HomeFragment : Fragment() {
                             lastPrice = stockData.regularMarketPrice?.toFloat() ?: 0f
                             niftyPriceText.text = "₹$lastPrice"
                             
+                            // Update global state for other fragments
+                            PortfolioManager.activeTicker.postValue(activeTicker)
+                            PortfolioManager.activeSymbolName.postValue(activeSymbol)
+                            
                             loadTradingViewChart(activeTicker)
                             
                             if (!isInitial) {

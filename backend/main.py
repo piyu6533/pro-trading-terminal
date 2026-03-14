@@ -48,25 +48,59 @@ def get_stock(symbol: str):
         return {"error": str(e)}
 
 @app.get("/oi-heatmap")
-def get_oi_heatmap():
-    # Dynamic mock data with more strikes for a better look
-    base_strike = 24300
+def get_oi_heatmap(symbol: str = "NIFTY"):
+    # Map friendly names to market symbols
+    ticker_map = {
+        "NIFTY": "^NSEI",
+        "BANKNIFTY": "^NSEBANK",
+        "RELIANCE": "RELIANCE.NS",
+        "TCS": "TCS.NS"
+    }
+
+    clean_symbol = symbol.upper()
+    ticker = ticker_map.get(clean_symbol, symbol)
+
+    # Determine base strike from live price
+    try:
+        res = requests.get(f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={ticker}", headers={"User-Agent": "Mozilla/5.0"}).json()
+        price = res['quoteResponse']['result'][0]['regularMarketPrice']
+        # Different step for different symbols (50 for NIFTY, 100 for BANKNIFTY)
+        step = 100 if "BANK" in ticker else 50
+        base_strike = round(price / step) * step
+    except:
+        base_strike = 24300
+
     data = []
-    for i in range(-5, 6):
-        strike = base_strike + (i * 50)
+    for i in range(-10, 11):
+        step = 100 if "BANK" in symbol.upper() else 50
+        strike = base_strike + (i * step)
         data.append({
             "strike": strike,
-            "call_oi": int(np.random.randint(500000, 2000000)),
-            "put_oi": int(np.random.randint(500000, 2000000)),
-            "call_delta": round(0.5 - (i * 0.05), 2),
-            "put_delta": round(-0.5 - (i * 0.05), 2)
+            "call_oi": int(np.random.randint(500000, 5000000)),
+            "put_oi": int(np.random.randint(500000, 5000000)),
+            "call_delta": round(max(0, 0.5 - (i * 0.05)), 2),
+            "put_delta": round(min(0, -0.5 - (i * 0.05)), 2),
+            "theta": round(-10 - np.random.rand() * 5, 2)
         })
     return {"heatmap": data}
+
+@app.get("/ai-signal")
+def get_ai_signal():
+    if not model_loaded and not load_ai_model():
+        return {"signal": "BUY", "confidence": 0.85, "note": "fallback"}
+
+    features = [[40.0, 1.2, 200000.0, 5.5, 1.1, 0.6, 1]]
+    try:
+        prediction = model.predict(features)[0]
+        signals = {1: "BUY", 0: "HOLD", -1: "SELL"}
+        return {"signal": signals.get(prediction, "HOLD")}
+    except Exception as e:
+        return {"error": str(e), "signal": "HOLD"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
-    symbols = ["^NSEI", "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS"]
+    symbols = ["^NSEI", "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "^NSEBANK"]
     prices = {}
 
     # Initial fetch of real prices

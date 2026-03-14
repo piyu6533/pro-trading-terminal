@@ -73,7 +73,9 @@ interface MarketApiService {
     ): Call<StockResponse>
 
     @GET("oi-heatmap")
-    fun getOiHeatmap(): Call<OiHeatmapResponse>
+    fun getOiHeatmap(
+        @Query("symbol") symbol: String? = null
+    ): Call<OiHeatmapResponse>
 
     @GET("gamma-exposure")
     fun getGammaExposure(): Call<GexResponse>

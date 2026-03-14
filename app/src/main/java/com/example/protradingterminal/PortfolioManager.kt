@@ -15,6 +15,8 @@ data class Position(
 object PortfolioManager {
     val positions = MutableLiveData<MutableMap<String, Position>>(mutableMapOf())
     val totalPnl = MutableLiveData<Float>(0f)
+    val activeTicker = MutableLiveData<String>("^NSEI")
+    val activeSymbolName = MutableLiveData<String>("NIFTY 50")
 
     fun addTrade(symbol: String, type: String, quantity: Int, price: Float) {
         val currentPositions = positions.value ?: mutableMapOf()
