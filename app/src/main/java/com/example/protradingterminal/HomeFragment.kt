@@ -13,6 +13,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.*
+import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
 import okhttp3.*
 import org.json.JSONObject
@@ -95,7 +96,7 @@ class HomeFragment : Fragment() {
 
         PortfolioManager.totalPnl.observe(viewLifecycleOwner) { totalPnl ->
             pnlValue.text = "₹${String.format(Locale.US, "%.2f", totalPnl)}"
-            pnlValue.setTextColor(if (totalPnl >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B"))
+            pnlValue.setTextColor(if (totalPnl >= 0) "#25A750".toColorInt() else "#D13A3B".toColorInt())
         }
 
         fetchInitialMarketData()
@@ -188,14 +189,14 @@ class HomeFragment : Fragment() {
         val symbol = data.symbol ?: return
         val row = TextView(context).apply {
             val change = data.regularMarketChangePercent ?: 0.0
-            val color = if (change >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B")
+            val color = if (change >= 0) "#25A750".toColorInt() else "#D13A3B".toColorInt()
             val sign = if (change >= 0) "+" else ""
             
             text = "$symbol   ₹${data.regularMarketPrice}   $sign${String.format(Locale.US, "%.2f", change)}%"
             setTextColor(color)
             setPadding(12, 12, 12, 12)
             textSize = 14f
-            setBackgroundColor(Color.parseColor("#F1F3F4"))
+            setBackgroundColor("#F1F3F4".toColorInt())
             val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             params.setMargins(0, 0, 0, 8)
             layoutParams = params
@@ -286,8 +287,8 @@ class HomeFragment : Fragment() {
                     activity?.runOnUiThread {
                         aiSignal.text = signal
                         when (signal) {
-                            "BUY" -> aiSignal.setTextColor(Color.parseColor("#25A750"))
-                            "SELL" -> aiSignal.setTextColor(Color.parseColor("#D13A3B"))
+                            "BUY" -> aiSignal.setTextColor("#25A750".toColorInt())
+                            "SELL" -> aiSignal.setTextColor("#D13A3B".toColorInt())
                             else -> aiSignal.setTextColor(Color.GRAY)
                         }
                     }
