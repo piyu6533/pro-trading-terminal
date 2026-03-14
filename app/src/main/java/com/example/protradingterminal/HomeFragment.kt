@@ -31,6 +31,7 @@ class HomeFragment : Fragment() {
     private lateinit var pnlValue: TextView
     private lateinit var aiSignal: TextView
     private lateinit var niftyPriceText: TextView
+    private lateinit var headerSymbolText: TextView
     private lateinit var etSymbol: EditText
     private lateinit var btnSearch: Button
     private lateinit var marketWatchList: LinearLayout
@@ -57,6 +58,7 @@ class HomeFragment : Fragment() {
         pnlValue = view.findViewById(R.id.pnlValue)
         aiSignal = view.findViewById(R.id.aiSignal)
         niftyPriceText = view.findViewById(R.id.niftyPriceText)
+        headerSymbolText = view.findViewById(R.id.headerSymbolText)
         etSymbol = view.findViewById(R.id.etSymbol)
         btnSearch = view.findViewById(R.id.btnSearch)
         marketWatchList = view.findViewById(R.id.marketWatchList)
@@ -211,6 +213,7 @@ class HomeFragment : Fragment() {
                         activity?.runOnUiThread {
                             activeSymbol = stockData.shortName ?: symbol
                             activeTicker = symbol
+                            headerSymbolText.text = activeSymbol
                             lastPrice = stockData.regularMarketPrice?.toFloat() ?: 0f
                             niftyPriceText.text = "₹$lastPrice"
                             
