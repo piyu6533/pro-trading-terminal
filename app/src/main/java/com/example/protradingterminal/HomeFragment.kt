@@ -66,8 +66,14 @@ class HomeFragment : Fragment() {
         btnSearch = view.findViewById(R.id.btnSearch)
         marketWatchList = view.findViewById(R.id.marketWatchList)
         
-        view.findViewById<Button>(R.id.btnBuy).setOnClickListener { showOrderPopup("BUY") }
-        view.findViewById<Button>(R.id.btnSell).setOnClickListener { showOrderPopup("SELL") }
+        view.findViewById<Button>(R.id.btnBuy).setOnClickListener { 
+            PortfolioManager.addTrade(activeTicker, "BUY", 1, lastPrice)
+            showOrderPopup("BUY") 
+        }
+        view.findViewById<Button>(R.id.btnSell).setOnClickListener { 
+            PortfolioManager.addTrade(activeTicker, "SELL", 1, lastPrice)
+            showOrderPopup("SELL") 
+        }
 
         btnSearch.setOnClickListener {
             val symbol = etSymbol.text.toString().trim()
@@ -87,6 +93,12 @@ class HomeFragment : Fragment() {
             .build()
 
         apiService = retrofit.create(MarketApiService::class.java)
+
+        // Observe total P&L
+        PortfolioManager.totalPnl.observe(viewLifecycleOwner) { totalPnl ->
+            pnlValue.text = "₹${String.format(Locale.US, "%.2f", totalPnl)}"
+            pnlValue.setTextColor(if (totalPnl >= 0) Color.parseColor("#25A750") else Color.parseColor("#D13A3B"))
+        }
 
         // Fetch real data for today immediately
         fetchInitialMarketData()
@@ -196,19 +208,16 @@ class HomeFragment : Fragment() {
                             lastPrice = price
                             niftyPriceText.text = "₹$price"
                             handlePriceUpdate(price)
+                            PortfolioManager.updatePrice(activeTicker, lastPrice)
                         }
                         
                         // 2. Update all items in the watchlist
                         for (symbol in watchListViews.keys) {
                             if (json.has(symbol)) {
                                 val price = json.getDouble(symbol)
+                                PortfolioManager.updatePrice(symbol, price.toFloat())
                                 val view = watchListViews[symbol]
-                                // Note: For a true live feeling, we'd also need the change% from the stream
-                                // For now we just update the price part of the string
                                 val currentText = view?.text.toString()
-                                val tickerPart = currentText.substringBefore("   ₹")
-                                val changePart = currentText.substringAfterLast("%").let { if (it.isEmpty()) currentText.substringAfterLast("   ") else it }
-                                // Simplified update logic for the demo
                                 if (view != null) {
                                     val parts = currentText.split("   ")
                                     if (parts.size >= 3) {
@@ -319,7 +328,7 @@ class HomeFragment : Fragment() {
             override fun onResponse(call: Call<PcrResponse>, response: Response<PcrResponse>) {
                 if (response.isSuccessful) {
                     val pcrData = response.body()
-                    activity?.runOnUiThread { pnlValue.text = "PCR: ${pcrData?.PCR} (${pcrData?.sentiment})" }
+                    // PCR is no longer displayed in pnlValue, PortfolioManager handles that
                 }
             }
             override fun onFailure(call: Call<PcrResponse>, t: Throwable) {}
