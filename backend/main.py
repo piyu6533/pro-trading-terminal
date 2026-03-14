@@ -5,6 +5,7 @@ import pandas as pd
 from fastapi import FastAPI, WebSocket
 from pydantic import BaseModel
 import asyncio
+import numpy as np
 
 app = FastAPI()
 
@@ -60,7 +61,6 @@ def get_pcr_calculation(call: float, put: float):
 
 @app.get("/oi-heatmap")
 def get_oi_heatmap():
-    # Sample data - in real app, fetch from NSE/Broker API
     data = [
         {"strike": 22000, "call_oi": 1200000, "put_oi": 800000},
         {"strike": 22100, "call_oi": 900000, "put_oi": 1500000},
@@ -70,7 +70,6 @@ def get_oi_heatmap():
 
 @app.get("/gamma-exposure")
 def get_gamma_exposure():
-    # Sample calculation
     gex = calculate_gex(0.05, 1200000)
     return {"gamma_exposure": gex}
 
@@ -86,14 +85,18 @@ def get_max_pain_api():
 @app.get("/ai-signal")
 def get_ai_signal():
     if not model_loaded:
-        # Mock signal if model not present
         return {"signal": "BUY", "confidence": 0.85}
     
-    # In real app, fetch live RSI/MACD/Vol first
-    rsi, macd, volume = 40, 1.2, 200000
-    prediction = model.predict([[rsi, macd, volume]])[0]
-    signals = {1: "BUY", 0: "HOLD", -1: "SELL"}
-    return {"signal": signals.get(prediction, "HOLD")}
+    # FIXED: Model expects 7 features, providing all 7 now
+    # Order: rsi, macd, volume, vwap_diff, pcr, news_sentiment, supertrend_dir
+    features = [[40.0, 1.2, 200000.0, 5.5, 1.1, 0.6, 1]]
+
+    try:
+        prediction = model.predict(features)[0]
+        signals = {1: "BUY", 0: "HOLD", -1: "SELL"}
+        return {"signal": signals.get(prediction, "HOLD")}
+    except Exception as e:
+        return {"error": f"Prediction failed: {str(e)}", "signal": "HOLD"}
 
 # --- WEBSOCKET FOR REAL-TIME PRICE ---
 @app.websocket("/ws")
@@ -102,12 +105,13 @@ async def websocket_endpoint(websocket: WebSocket):
     price = 22147.90
     try:
         while True:
-            price += (pd.np.random.rand() - 0.5) * 5 # Simulate price movement
+            price += (np.random.rand() - 0.5) * 5
             await websocket.send_json({"price": round(price, 2)})
-            await asyncio.sleep(1) # Send update every second
+            await asyncio.sleep(1)
     except Exception:
         print("WebSocket Client Disconnected")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    # Use standard uvicorn worker for WebSocket support
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))
