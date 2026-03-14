@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_home"
+        android:icon="@android:drawable/ic_menu_today"
+        android:title="Home" />
+    <item
+        android:id="@+id/navigation_analyse"
+        android:icon="@android:drawable/ic_menu_search"
+        android:title="Analyse" />
+    <item
+        android:id="@+id/navigation_positions"
+        android:icon="@android:drawable/ic_menu_manage"
+        android:title="Positions" />
+    <item
+        android:id="@+id/navigation_watchlist"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Watchlist" />
+</menu>
